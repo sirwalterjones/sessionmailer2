@@ -23,13 +23,22 @@ export default function SignInPage() {
     setLoading(true)
     setError('')
 
-    const { error } = await signIn(email, password)
+    try {
+      const { error } = await signIn(email, password)
 
-    if (error) {
-      setError(error.message)
+      if (error) {
+        setError(error.message)
+        setLoading(false)
+      } else {
+        // Show success feedback briefly before redirect
+        setError('')
+        setTimeout(() => {
+          router.push('/dashboard')
+        }, 500) // Small delay to show success state
+      }
+    } catch (err) {
+      setError('An unexpected error occurred. Please try again.')
       setLoading(false)
-    } else {
-      router.push('/dashboard')
     }
   }
 

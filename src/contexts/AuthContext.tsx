@@ -26,6 +26,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isPremium, setIsPremium] = useState(false)
   const supabase = createClient()
 
+  // Separate function to check premium status (non-blocking)
+  const checkPremiumStatus = async (userId: string) => {
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('is_premium')
+        .eq('id', userId)
+        .single()
+      
+      setIsPremium(profile?.is_premium ?? false)
+    } catch (error) {
+      console.warn('Could not fetch premium status:', error)
+      setIsPremium(false)
+    }
+  }
+
   useEffect(() => {
     let isMounted = true
     
@@ -50,10 +66,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           throw new Error('Supabase not configured')
         }
         
-        // Add a race condition with timeout to prevent hanging
+        // Reduced timeout for faster response
         const sessionPromise = supabase.auth.getSession()
         const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Session timeout after 2 seconds')), 2000)
+          setTimeout(() => reject(new Error('Session timeout after 1 second')), 1000)
         )
         
         const { data: { session }, error } = await Promise.race([
@@ -72,33 +88,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setSession(session)
         setUser(session?.user ?? null)
         
+        // Check premium status in background (non-blocking)
         if (session?.user) {
-          // Check if user is premium (with timeout)
-          try {
-            const profilePromise = supabase
-              .from('profiles')
-              .select('is_premium')
-              .eq('id', session.user.id)
-              .single()
-            
-            const profileTimeoutPromise = new Promise((_, reject) => 
-              setTimeout(() => reject(new Error('Profile timeout')), 1000)
-            )
-            
-            const { data: profile } = await Promise.race([
-              profilePromise,
-              profileTimeoutPromise
-            ]) as any
-            
-            if (isMounted) {
-              setIsPremium(profile?.is_premium ?? false)
-            }
-          } catch (error) {
-            console.warn('Could not fetch premium status:', error)
-            if (isMounted) {
-              setIsPremium(false)
-            }
-          }
+          checkPremiumStatus(session.user.id)
         } else {
           setIsPremium(false)
         }
@@ -154,11 +146,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     getSession()
 
-    // Cleanup function
-    return () => {
-      isMounted = false
-    }
-
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
@@ -168,24 +155,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setSession(session)
         setUser(session?.user ?? null)
         
+        // Check premium status in background (non-blocking)
         if (session?.user) {
-          // Check if user is premium
-          try {
-            const { data: profile } = await supabase
-              .from('profiles')
-              .select('is_premium')
-              .eq('id', session.user.id)
-              .single()
-            
-            if (isMounted) {
-              setIsPremium(profile?.is_premium ?? false)
-            }
-          } catch (error) {
-            console.warn('Could not fetch premium status on auth change:', error)
-            if (isMounted) {
-              setIsPremium(false)
-            }
-          }
+          checkPremiumStatus(session.user.id)
         } else {
           setIsPremium(false)
         }
@@ -203,48 +175,75 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [supabase])
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
-    return { error }
+    setLoading(true)
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
+      return { error }
+    } finally {
+      // Don't set loading to false here - let the auth state change handle it
+    }
   }
 
   const signUp = async (email: string, password: string, fullName?: string) => {
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name: fullName,
+    setLoading(true)
+    try {
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: fullName,
+          },
         },
-      },
-    })
-    return { error }
+      })
+      return { error }
+    } finally {
+      // Don't set loading to false here - let the auth state change handle it
+    }
   }
 
   const signOut = async () => {
     try {
       console.log('Attempting to sign out...')
+      setLoading(true)
       
-      // Try to sign out with Supabase with timeout
+      // Immediately clear local state for instant UI feedback
+      setSession(null)
+      setUser(null)
+      setIsPremium(false)
+      
+      // Try to sign out with Supabase with reduced timeout
       const signOutPromise = supabase.auth.signOut()
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Sign out timeout')), 3000)
+        setTimeout(() => reject(new Error('Sign out timeout')), 1500)
       )
       
       await Promise.race([signOutPromise, timeoutPromise])
       console.log('Supabase sign out successful')
+      
+      // Clear storage after successful sign out
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.clear()
+          sessionStorage.clear()
+          
+          // Clear any Supabase-specific storage
+          Object.keys(localStorage).forEach(key => {
+            if (key.startsWith('supabase.')) {
+              localStorage.removeItem(key)
+            }
+          })
+        } catch (e) {
+          console.warn('Could not clear storage:', e)
+        }
+      }
     } catch (error) {
       console.warn('Supabase sign out failed, using fallback:', error)
       
-      // Fallback: Clear local state and storage manually
-      setSession(null)
-      setUser(null)
-      setIsPremium(false)
-      setLoading(false)
-      
-      // Clear all storage
+      // Fallback: Clear all storage manually
       if (typeof window !== 'undefined') {
         try {
           localStorage.clear()
@@ -263,6 +262,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Force redirect to home page
         window.location.href = '/'
       }
+    } finally {
+      setLoading(false)
     }
   }
 

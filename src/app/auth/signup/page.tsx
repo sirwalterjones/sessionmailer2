@@ -31,18 +31,23 @@ export default function SignUpPage() {
       return
     }
 
-    const { error } = await signUp(email, password, fullName)
+    try {
+      const { error } = await signUp(email, password, fullName)
 
-    if (error) {
-      setError(error.message)
+      if (error) {
+        setError(error.message)
+        setLoading(false)
+      } else {
+        setSuccess(true)
+        setLoading(false)
+        // Redirect to dashboard after successful signup
+        setTimeout(() => {
+          router.push('/dashboard')
+        }, 1500) // Reduced delay for faster flow
+      }
+    } catch (err) {
+      setError('An unexpected error occurred. Please try again.')
       setLoading(false)
-    } else {
-      setSuccess(true)
-      setLoading(false)
-      // Redirect to dashboard after successful signup
-      setTimeout(() => {
-        router.push('/dashboard')
-      }, 2000)
     }
   }
 
