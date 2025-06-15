@@ -34,7 +34,6 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import EmailPreview from "@/components/EmailPreview";
 
 interface DashboardProps {
-  isPremium?: boolean;
   savedProjects?: Array<{
     id: string;
     name: string;
@@ -45,8 +44,8 @@ interface DashboardProps {
 
 export default function Dashboard({
   savedProjects = [],
-}: Omit<DashboardProps, 'isPremium'>) {
-  const { user, isPremium } = useAuth();
+}: DashboardProps) {
+  const { user } = useAuth();
   // Replace single URL and multiple URLs state with an array of URLs
   const [urlInputs, setUrlInputs] = useState([
     { id: 1, value: "https://book.usesession.com/s/tFMsifAt84" }
@@ -349,9 +348,7 @@ export default function Dashboard({
 
   const handleSaveProject = () => {
     // In a real implementation, this would save the project to the user's account
-    if (!isPremium) {
-      // Show upgrade prompt
-    }
+    console.log('Save project functionality would be implemented here');
   };
 
   // Real-time preview update function
@@ -443,15 +440,7 @@ export default function Dashboard({
           </div>
 
           <div className="mt-4 md:mt-0">
-            {isPremium && (
-              <Badge
-                variant="secondary"
-                className="bg-gradient-to-r from-amber-200 to-yellow-400 text-black"
-              >
-                <Sparkles className="h-3.5 w-3.5 mr-1" />
-                Premium Account
-              </Badge>
-            )}
+            {/* Premium badge removed - no premium version */}
           </div>
         </div>
 
@@ -552,10 +541,9 @@ export default function Dashboard({
                         variant="outline"
                         className="gap-2"
                         onClick={handleSaveProject}
-                        disabled={!isPremium}
                       >
                         <Save className="h-4 w-4" />
-                        {isPremium ? "Save Project" : "Save (Premium Only)"}
+                        Save Project
                       </Button>
                     </div>
                   </div>
@@ -948,55 +936,7 @@ export default function Dashboard({
             </Card>
           )}
 
-          {/* Saved Projects Section */}
-          {isPremium && (
-            <Card className="bg-background">
-              <CardHeader>
-                <CardTitle>Saved Projects</CardTitle>
-                <CardDescription>
-                  Access your previously saved email templates
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {savedProjects.length > 0 ? (
-                  <div className="grid gap-4">
-                    {savedProjects.map((project) => (
-                      <div
-                        key={project.id}
-                        className="flex items-center justify-between p-4 border rounded-md"
-                      >
-                        <div>
-                          <h3 className="font-medium">{project.name}</h3>
-                          <p className="text-sm text-muted-foreground">
-                            {new Date(project.createdAt).toLocaleDateString()}
-                          </p>
-                        </div>
-                        <div className="flex gap-2">
-                          <Button variant="outline" size="sm">
-                            Load
-                          </Button>
-                          <Button variant="outline" size="sm">
-                            Delete
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <p className="text-muted-foreground">
-                      No saved projects yet
-                    </p>
-                  </div>
-                )}
-              </CardContent>
-              <CardFooter className="border-t px-6 py-4">
-                <p className="text-sm text-muted-foreground">
-                  Premium feature: Save unlimited projects for future use
-                </p>
-              </CardFooter>
-            </Card>
-          )}
+          {/* Saved Projects Section - Removed premium requirement */}
         </div>
       </div>
     </div>

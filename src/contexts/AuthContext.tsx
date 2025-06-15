@@ -14,7 +14,6 @@ interface AuthContextType {
   updatePassword: (newPassword: string) => Promise<{ error: any }>
   updateProfile: (updates: { full_name?: string }) => Promise<{ error: any }>
   resetAuth: () => void
-  isPremium: boolean
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -23,24 +22,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
-  const [isPremium, setIsPremium] = useState(false)
   const supabase = createClient()
-
-  // Separate function to check premium status (non-blocking)
-  const checkPremiumStatus = async (userId: string) => {
-    try {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('is_premium')
-        .eq('id', userId)
-        .single()
-      
-      setIsPremium(profile?.is_premium ?? false)
-    } catch (error) {
-      console.warn('Could not fetch premium status:', error)
-      setIsPremium(false)
-    }
-  }
 
   useEffect(() => {
     let isMounted = true
@@ -66,10 +48,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           throw new Error('Supabase not configured')
         }
         
-        // Reduced timeout for faster response
+        // Very short timeout for immediate response
         const sessionPromise = supabase.auth.getSession()
         const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Session timeout after 1 second')), 1000)
+          setTimeout(() => reject(new Error('Session timeout after 500ms')), 500)
         )
         
         const { data: { session }, error } = await Promise.race([
@@ -88,12 +70,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setSession(session)
         setUser(session?.user ?? null)
         
-        // Check premium status in background (non-blocking)
-        if (session?.user) {
-          checkPremiumStatus(session.user.id)
-        } else {
-          setIsPremium(false)
-        }
       } catch (error) {
         console.error('Auth session error:', error)
         
@@ -117,7 +93,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             
             setUser(fallbackUser)
             setSession({ user: fallbackUser } as any)
-            setIsPremium(false)
             setLoading(false)
             return
           }
@@ -126,7 +101,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Clear any potentially corrupted auth state
         setSession(null)
         setUser(null)
-        setIsPremium(false)
         
         // Clear local storage to reset auth state
         if (typeof window !== 'undefined') {
@@ -154,13 +128,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log('Auth state change:', event, session ? `User: ${session.user?.email}` : 'No session')
         setSession(session)
         setUser(session?.user ?? null)
-        
-        // Check premium status in background (non-blocking)
-        if (session?.user) {
-          checkPremiumStatus(session.user.id)
-        } else {
-          setIsPremium(false)
-        }
         
         if (isMounted) {
           setLoading(false)
@@ -213,12 +180,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Immediately clear local state for instant UI feedback
       setSession(null)
       setUser(null)
-      setIsPremium(false)
       
-      // Try to sign out with Supabase with reduced timeout
+      // Try to sign out with Supabase with very short timeout
       const signOutPromise = supabase.auth.signOut()
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Sign out timeout')), 1500)
+        setTimeout(() => reject(new Error('Sign out timeout')), 1000)
       )
       
       await Promise.race([signOutPromise, timeoutPromise])
@@ -272,7 +238,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(false)
     setSession(null)
     setUser(null)
-    setIsPremium(false)
     
     // Clear all storage
     if (typeof window !== 'undefined') {
@@ -322,7 +287,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     updatePassword,
     updateProfile,
     resetAuth,
-    isPremium,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

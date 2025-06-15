@@ -20,7 +20,7 @@ import {
 } from 'lucide-react'
 
 export default function ProfilePage() {
-  const { user, updatePassword, updateProfile, isPremium } = useAuth()
+  const { user, updatePassword, updateProfile } = useAuth()
   
   // Profile form state
   const [fullName, setFullName] = useState(user?.user_metadata?.full_name || '')
@@ -120,14 +120,7 @@ export default function ProfilePage() {
               <Mail className="h-3 w-3" />
               {user.email}
             </Badge>
-            {isPremium ? (
-              <Badge className="bg-gradient-to-r from-amber-500 to-yellow-600 text-white flex items-center gap-2">
-                <Crown className="h-3 w-3" />
-                Premium Account
-              </Badge>
-            ) : (
-              <Badge variant="secondary">Free Account</Badge>
-            )}
+            <Badge variant="secondary">Standard Account</Badge>
           </div>
         </div>
 
@@ -295,20 +288,11 @@ export default function ProfilePage() {
               <div>
                 <h4 className="font-medium text-gray-900 mb-2">Account Type</h4>
                 <div className="flex items-center gap-2">
-                  {isPremium ? (
-                    <Badge className="bg-gradient-to-r from-amber-500 to-yellow-600 text-white">
-                      <Crown className="h-3 w-3 mr-1" />
-                      Premium
-                    </Badge>
-                  ) : (
-                    <Badge variant="secondary">Free</Badge>
-                  )}
+                  <Badge variant="secondary">Standard</Badge>
                 </div>
-                {!isPremium && (
-                  <p className="text-sm text-gray-600 mt-1">
-                    Upgrade to Premium for unlimited projects and advanced features
-                  </p>
-                )}
+                <p className="text-sm text-gray-600 mt-1">
+                  All features included in your standard account
+                </p>
               </div>
               
               <div>
