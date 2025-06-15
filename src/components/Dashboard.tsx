@@ -150,9 +150,9 @@ export default function Dashboard({
       console.log("API response status:", response.status);
 
       if (!response.ok) {
-        // Fallback to original endpoint if enhanced fails
-        console.log("Enhanced endpoint failed, trying fallback...");
-        const fallbackResponse = await fetch("/api/extract-session", {
+        // Fallback to lightweight endpoint if enhanced fails
+        console.log("Enhanced endpoint failed, trying lightweight fallback...");
+        const lightResponse = await fetch("/api/enhanced-extract-light", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -160,13 +160,29 @@ export default function Dashboard({
           body: JSON.stringify(requestBody),
         });
         
-        if (!fallbackResponse.ok) {
-          throw new Error("Failed to extract session data");
+        if (!lightResponse.ok) {
+          // Final fallback to original endpoint
+          console.log("Lightweight endpoint failed, trying original fallback...");
+          const fallbackResponse = await fetch("/api/extract-session", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(requestBody),
+          });
+          
+          if (!fallbackResponse.ok) {
+            throw new Error("Failed to extract session data");
+          }
+
+          const fallbackData = await fallbackResponse.json();
+          console.log("Original fallback API response:", fallbackData);
+          return fallbackData;
         }
 
-        const fallbackData = await fallbackResponse.json();
-        console.log("Fallback API response:", fallbackData);
-        return fallbackData;
+        const lightData = await lightResponse.json();
+        console.log("Lightweight API response:", lightData);
+        return lightData;
       }
 
       const data = await response.json();
