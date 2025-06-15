@@ -240,102 +240,197 @@ function extractTextContent(html: string): {
   return { title, description, date, location };
 }
 
+async function capturePageAsEmailHtml(page: any, url: string): Promise<string> {
+  // Get computed styles for all elements
+  const emailHtml = await page.evaluate((originalUrl: string) => {
+    // Function to convert computed styles to inline styles
+    function getInlineStyles(element: Element): string {
+      const computedStyle = window.getComputedStyle(element);
+      const importantStyles = [
+        'background-color', 'background-image', 'background-size', 'background-position',
+        'color', 'font-family', 'font-size', 'font-weight', 'line-height',
+        'text-align', 'text-decoration', 'margin', 'padding', 'border',
+        'border-radius', 'width', 'height', 'max-width', 'min-height',
+        'display', 'float', 'clear', 'position', 'top', 'left', 'right', 'bottom'
+      ];
+      
+      let inlineStyle = '';
+      importantStyles.forEach(prop => {
+        const value = computedStyle.getPropertyValue(prop);
+        if (value && value !== 'initial' && value !== 'normal' && value !== 'auto') {
+          // Convert relative units and viewport units to pixels for email compatibility
+          let emailValue = value;
+          if (value.includes('rem')) {
+            const remValue = parseFloat(value) * 16; // Assume 16px base
+            emailValue = value.replace(/[\d.]+rem/g, remValue + 'px');
+          }
+          if (value.includes('vw') || value.includes('vh')) {
+            // Convert viewport units to reasonable pixel values
+            emailValue = value.replace(/[\d.]+vw/g, '600px').replace(/[\d.]+vh/g, '400px');
+          }
+          inlineStyle += `${prop}: ${emailValue} !important; `;
+        }
+      });
+      
+      return inlineStyle;
+    }
+
+    // Remove problematic elements
+    const elementsToRemove = [
+      'script', 'noscript', 'style[data-styled]', 'link[rel="stylesheet"]',
+      'header', 'nav', 'footer', '.header', '.navigation', '.nav', '.footer',
+      '[class*="header"]', '[class*="nav"]', '[class*="footer"]', '[class*="menu"]'
+    ];
+    
+    elementsToRemove.forEach(selector => {
+      document.querySelectorAll(selector).forEach(el => el.remove());
+    });
+
+    // Find the main content area (usually the largest content block)
+    const contentSelectors = [
+      'main', '.main', '.content', '.container', '.session-details', 
+      '.booking-page', '.session-info', '[class*="session"]', '[class*="booking"]'
+    ];
+    
+    let mainContent = null;
+    for (const selector of contentSelectors) {
+      const element = document.querySelector(selector);
+                  if (element && (element as HTMLElement).offsetHeight > 200) {
+        mainContent = element;
+        break;
+      }
+    }
+    
+    // If no main content found, use body but clean it up
+    if (!mainContent) {
+      mainContent = document.body;
+    }
+
+    // Clone the main content to avoid modifying the original
+    const contentClone = mainContent.cloneNode(true) as Element;
+    
+    // Convert all elements to have inline styles
+    function processElement(element: Element) {
+      if (element.nodeType === Node.ELEMENT_NODE) {
+        const inlineStyles = getInlineStyles(element);
+        if (inlineStyles) {
+          element.setAttribute('style', inlineStyles);
+        }
+        
+        // Convert images to absolute URLs
+        if (element.tagName === 'IMG') {
+          const src = element.getAttribute('src');
+          if (src && !src.startsWith('http')) {
+            const absoluteUrl = new URL(src, window.location.href).href;
+            element.setAttribute('src', absoluteUrl);
+          }
+        }
+        
+        // Convert links to absolute URLs
+        if (element.tagName === 'A') {
+          const href = element.getAttribute('href');
+          if (href && !href.startsWith('http') && !href.startsWith('mailto')) {
+            const absoluteUrl = new URL(href, window.location.href).href;
+            element.setAttribute('href', absoluteUrl);
+          }
+        }
+        
+        // Process child elements
+        Array.from(element.children).forEach(child => processElement(child));
+      }
+    }
+    
+    processElement(contentClone);
+    
+    // Create email-compatible HTML structure
+    const emailTemplate = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${document.title}</title>
+    <style>
+        body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
+        .email-wrapper { max-width: 600px; margin: 0 auto; background: #fff; }
+        img { max-width: 100% !important; height: auto !important; display: block; }
+        a { color: #0066cc; text-decoration: none; }
+        table { border-collapse: collapse; width: 100%; }
+        .book-now-btn { 
+          display: inline-block !important; 
+          background-color: #7851a9 !important; 
+          color: white !important; 
+          padding: 15px 30px !important; 
+          text-decoration: none !important; 
+          border-radius: 25px !important; 
+          font-weight: bold !important; 
+          font-size: 16px !important; 
+          margin: 20px 0 !important;
+          text-align: center !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="email-wrapper">
+        ${contentClone.outerHTML}
+        <div style="text-align: center; margin: 30px 0; padding: 20px;">
+            <a href="${originalUrl}" class="book-now-btn">Book This Session</a>
+        </div>
+    </div>
+</body>
+</html>`;
+    
+    return emailTemplate;
+  }, url);
+  
+  return emailHtml;
+}
+
 function cleanHtmlForEmail(html: string, baseUrl: string): string {
-  // Clean the HTML to remove problematic characters that cause brackets in Mailchimp
+  // This is now a fallback function - the main processing should use capturePageAsEmailHtml
   let cleanedHtml = html
-    // Remove script tags and their content
     .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
-    // Remove style tags and their content - but preserve inline styles
     .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
-    // Remove comments
     .replace(/<!--[\s\S]*?-->/g, "")
-    // Remove header, nav, and footer elements that contain logos/branding
     .replace(/<header[^>]*>[\s\S]*?<\/header>/gi, "")
     .replace(/<nav[^>]*>[\s\S]*?<\/nav>/gi, "")
     .replace(/<footer[^>]*>[\s\S]*?<\/footer>/gi, "")
-    // Remove elements with logo-related classes or IDs
-    .replace(
-      /<[^>]*(?:class|id)=["'][^"']*(?:logo|brand|header)[^"']*["'][^>]*>[\s\S]*?<\/[^>]+>/gi,
-      "",
-    )
-    // Remove top navigation divs and site branding
-    .replace(
-      /<div[^>]*(?:class|id)=["'][^"']*(?:header|nav|top|site|brand)[^"']*["'][^>]*>[\s\S]*?<\/div>/gi,
-      "",
-    )
-    // Fix relative URLs to absolute URLs
     .replace(/src="\//g, `src="${new URL(baseUrl).origin}/`)
     .replace(/href="\//g, `href="${new URL(baseUrl).origin}/`);
 
-  // More targeted character cleaning - only remove specific problematic characters
-  cleanedHtml = cleanedHtml
-    // Remove specific Unicode characters that cause brackets in Mailchimp
-    .replace(/[\u2018\u2019]/g, "'") // Smart quotes to regular quotes
-    .replace(/[\u201C\u201D]/g, '"') // Smart double quotes to regular quotes
-    .replace(/[\u2013\u2014]/g, "-") // En dash and em dash to regular dash
-    .replace(/[\u2026]/g, "...") // Ellipsis to three dots
-    .replace(/[\u00A0]/g, " ") // Non-breaking space to regular space
-    .replace(/[\u200B-\u200F\u2028-\u202F\u205F-\u206F\uFEFF]/g, "") // Zero-width and formatting characters
-    // Remove control characters but keep basic formatting
-    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "")
-    // Convert common HTML entities to safe characters
-    .replace(/&[a-zA-Z0-9#]+;/g, (match) => {
-      const entityMap = {
-        "&quot;": '"',
-        "&apos;": "'",
-        "&lt;": "<",
-        "&gt;": ">",
-        "&amp;": "&",
-        "&nbsp;": " ",
-        "&mdash;": "-",
-        "&ndash;": "-",
-        "&ldquo;": '"',
-        "&rdquo;": '"',
-        "&lsquo;": "'",
-        "&rsquo;": "'",
-        "&hellip;": "...",
-        "&bull;": "*",
-      };
-      return entityMap[match] || match; // Keep unknown entities instead of removing them
-    })
-    // Clean up extra whitespace but preserve structure
-    .replace(/\s+/g, " ")
-    .replace(/> </g, "><")
-    .trim();
-
-  // Now find and style time slot buttons with more aggressive pattern matching
-  cleanedHtml = cleanedHtml
-    // Match buttons or links that contain time patterns (like "7:00 PM")
-    .replace(
-      /<(button|a)[^>]*>\s*\d{1,2}:\d{2}\s*(AM|PM)\s*<\/(button|a)>/gi,
-      (match) => {
-        const timeText =
-          match.match(/>\s*(\d{1,2}:\d{2}\s*(?:AM|PM))\s*</i)?.[1] || "";
-        const tag = match.startsWith("<a") ? "a" : "button";
-        const href = match.match(/href=["']([^"']*)["']/i)?.[1] || "";
-        const hrefAttr = href ? ` href="${href}"` : "";
-        return `<${tag}${hrefAttr} style="display: inline-block; background-color: #7851a9; color: white; padding: 8px 16px; margin: 4px; border-radius: 20px; text-decoration: none; font-size: 14px; border: none; cursor: pointer;">${timeText}</${tag}>`;
-      },
-    )
-    // Also match divs or spans that contain time patterns
-    .replace(
-      /<(div|span)[^>]*>\s*\d{1,2}:\d{2}\s*(AM|PM)\s*<\/(div|span)>/gi,
-      (match) => {
-        const timeText =
-          match.match(/>\s*(\d{1,2}:\d{2}\s*(?:AM|PM))\s*</i)?.[1] || "";
-        return `<span style="display: inline-block; background-color: #7851a9; color: white; padding: 8px 16px; margin: 4px; border-radius: 20px; text-decoration: none; font-size: 14px; border: none; cursor: pointer;">${timeText}</span>`;
-      },
-    );
-
-  // Add Book Now button before closing body tag
-  cleanedHtml = cleanedHtml.replace(
-    /<\/body>/i,
-    `
-    <div style="text-align: center; margin: 30px 0; padding: 20px;">
-      <a href="${baseUrl}" style="display: inline-block; background-color: #7851a9; color: white; padding: 15px 30px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 16px; transition: background-color 0.3s;">Book Now</a>
+  // Convert to email-compatible structure
+  cleanedHtml = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Photography Session</title>
+    <style>
+        body { margin: 0; padding: 0; font-family: Arial, sans-serif; background: #f5f5f5; }
+        .email-container { max-width: 600px; margin: 0 auto; background: #fff; }
+        img { max-width: 100% !important; height: auto !important; display: block; }
+        .book-now-btn { 
+          display: inline-block !important; 
+          background-color: #7851a9 !important; 
+          color: white !important; 
+          padding: 15px 30px !important; 
+          text-decoration: none !important; 
+          border-radius: 25px !important; 
+          font-weight: bold !important; 
+          margin: 20px 0 !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        ${cleanedHtml.replace(/<\/body>/i, '')}
+        <div style="text-align: center; margin: 30px 0; padding: 20px;">
+            <a href="${baseUrl}" class="book-now-btn">Book This Session</a>
+        </div>
     </div>
-  </body>`,
-  );
+</body>
+</html>`;
 
   return cleanedHtml;
 }
@@ -495,11 +590,14 @@ export async function POST(request: NextRequest) {
         // Additional wait to ensure all dynamic content is rendered
         await page.waitForTimeout(3000);
 
-        console.log("Capturing full page HTML...");
+        console.log("Capturing full page HTML with enhanced visual processing...");
 
-        // Get the complete HTML content of the page
+        // Use the new enhanced capture method
+        const enhancedEmailHtml = await capturePageAsEmailHtml(page, url);
+
+        // Also get the traditional HTML for fallback
         const fullHtml = await page.content();
-
+        
         // Also get the page title for reference
         const pageTitle = await page.title();
 
@@ -552,6 +650,7 @@ export async function POST(request: NextRequest) {
           url,
           title: pageTitle,
           html: fullHtml,
+          enhancedEmailHtml, // Add the enhanced email HTML
           rawHtmlWithButton,
           firstImage: absoluteImageUrl,
         });
@@ -565,7 +664,7 @@ export async function POST(request: NextRequest) {
           html: "",
           rawHtmlWithButton: "",
           firstImage: null,
-          error: error.message,
+          error: (error as Error).message,
         });
       }
     }
@@ -584,7 +683,8 @@ export async function POST(request: NextRequest) {
         );
       rawHtml = `<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="UTF-8">\n<meta name="viewport" content="width=device-width, initial-scale=1.0">\n<title>Photography Sessions</title>\n</head>\n<body>\n${combinedRawHtml}\n</body>\n</html>`;
     } else if (sessions.length === 1) {
-      emailHtml = cleanHtmlForEmail(sessions[0].html, sessions[0].url);
+      // Use enhanced email HTML if available, otherwise fall back to cleaned HTML
+      emailHtml = sessions[0].enhancedEmailHtml || cleanHtmlForEmail(sessions[0].html, sessions[0].url);
       rawHtml = sessions[0]?.rawHtmlWithButton || sessions[0]?.html;
     } else {
       emailHtml =
@@ -614,7 +714,7 @@ export async function POST(request: NextRequest) {
       {
         success: false,
         error: "Failed to capture page content",
-        details: error.message,
+        details: (error as Error).message,
       },
       { status: 500 },
     );
