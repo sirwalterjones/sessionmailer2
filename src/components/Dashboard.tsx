@@ -77,6 +77,7 @@ export default function Dashboard({
     title: string;
     html: string;
     firstImage: string | null;
+    images?: string[];
     error?: string;
   }>>([]);
   
@@ -236,7 +237,16 @@ export default function Dashboard({
 
       if (data.success) {
         if (data.sessions && Array.isArray(data.sessions)) {
-          setSessions(data.sessions);
+          // Ensure sessions include the images array from API response
+          const sessionsWithImages = data.sessions.map((session: any) => ({
+            url: session.url,
+            title: session.title,
+            html: session.html || session.enhancedEmailHtml || "",
+            firstImage: session.firstImage,
+            images: session.images || [],
+            error: session.error
+          }));
+          setSessions(sessionsWithImages);
           
           if (data.sessions.length > 1) {
             // Multiple sessions
@@ -268,7 +278,8 @@ export default function Dashboard({
             url: validUrls[0],
             title: data.title || "Session",
             html: data.emailHtml || "",
-            firstImage: data.firstImage || null
+            firstImage: data.firstImage || null,
+            images: data.images || []
           }]);
           // Set the first image as selected hero image for legacy responses
           if (data.firstImage) {
@@ -433,7 +444,8 @@ export default function Dashboard({
         url: project.url,
         title: project.name,
         html: project.email_html,
-        firstImage: null
+        firstImage: null,
+        images: []
       }]);
 
     } catch (error) {
@@ -491,28 +503,62 @@ export default function Dashboard({
   // Extract all available images from sessions
   const getAllAvailableImages = () => {
     const allImages: Array<{url: string, source: string}> = [];
+    const seenUrls = new Set<string>();
     
     sessions.forEach((session, sessionIndex) => {
-      // Add firstImage if available
-      if (session.firstImage) {
+      const sessionTitle = session.title || `Session ${sessionIndex + 1}`;
+      
+      // Always add firstImage if available (this is the current/default hero)
+      if (session.firstImage && !seenUrls.has(session.firstImage)) {
         allImages.push({
           url: session.firstImage,
-          source: `${session.title || `Session ${sessionIndex + 1}`} (Hero)`
+          source: `${sessionTitle} (Default Hero)`
         });
+        seenUrls.add(session.firstImage);
       }
       
-      // Add other images if session has an images array
-      if ((session as any).images && Array.isArray((session as any).images)) {
-        (session as any).images.forEach((img: string, imgIndex: number) => {
-          if (img && img !== session.firstImage) {
+      // Add other images from the images array if available
+      if (session.images && Array.isArray(session.images)) {
+        session.images.forEach((img: string, imgIndex: number) => {
+          if (img && !seenUrls.has(img)) {
+            // If this image is the same as firstImage, label it differently
+            const label = img === session.firstImage 
+              ? `${sessionTitle} (Current Hero)` 
+              : `${sessionTitle} (Image ${imgIndex + 1})`;
+            
             allImages.push({
               url: img,
-              source: `${session.title || `Session ${sessionIndex + 1}`} (Image ${imgIndex + 1})`
+              source: label
             });
+            seenUrls.add(img);
           }
         });
       }
+      
+      // If no images array but we have firstImage, ensure it's included
+      // (This handles cases where API doesn't return full images array)
+      if (!session.images && session.firstImage && !seenUrls.has(session.firstImage)) {
+        allImages.push({
+          url: session.firstImage,
+          source: `${sessionTitle} (Hero Image)`
+        });
+        seenUrls.add(session.firstImage);
+      }
     });
+    
+    // Add some fallback images if no images found at all
+    if (allImages.length === 0) {
+      allImages.push(
+        {
+          url: 'https://images.unsplash.com/photo-1606216794074-735e91aa2c92?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80',
+          source: 'Fallback Image 1'
+        },
+        {
+          url: 'https://images.unsplash.com/photo-1542038784456-1ea8e935640e?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80',
+          source: 'Fallback Image 2'
+        }
+      );
+    }
     
     return allImages;
   };
