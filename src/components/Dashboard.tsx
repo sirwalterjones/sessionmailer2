@@ -464,71 +464,117 @@ export default function Dashboard({
     if (isGenerated) setHasUnsavedChanges(true);
   };
 
-  const updatePreview = async () => {
-    if (!sessions.length) return;
+  // Fast client-side styling update - no API calls needed!
+  const updatePreview = () => {
+    if (!emailHtml && !capturedHtml) return;
     
     setIsUpdatingPreview(true);
     
-    try {
-      // Get the URLs from sessions
-      const urls = sessions.map(session => session.url);
-      
-      const requestBody = urls.length === 1 
-        ? { 
-            url: urls[0],
-            primaryColor,
-            secondaryColor,
-            headingFont,
-            paragraphFont,
-            headingFontSize,
-            paragraphFontSize,
-            headingTextColor,
-            paragraphTextColor
-          }
-        : { 
-            urls,
-            primaryColor,
-            secondaryColor,
-            headingFont,
-            paragraphFont,
-            headingFontSize,
-            paragraphFontSize,
-            headingTextColor,
-            paragraphTextColor
-          };
-
-      const response = await fetch("/api/enhanced-extract", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(requestBody),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success && data.sessions && Array.isArray(data.sessions)) {
-          if (data.sessions.length > 1) {
-            // Multiple sessions response
-            setEmailHtml(data.emailHtml || "");
-            setCapturedHtml(data.emailHtml || "");
-            setRawHtml(data.rawHtml || "");
-          } else if (data.sessions.length === 1) {
-            // Single session response
-            const session = data.sessions[0];
-            setEmailHtml(session.enhancedEmailHtml || data.emailHtml || "");
-            setCapturedHtml(session.enhancedEmailHtml || data.emailHtml || "");
-            setRawHtml(session.rawHtmlWithButton || data.rawHtml || "");
-          }
+    // Use a small delay to show the loading state briefly
+    setTimeout(() => {
+      try {
+        // Get the current HTML content
+        const currentHtml = emailHtml || capturedHtml;
+        
+        // Create a comprehensive style injection
+        const styleInjection = `
+          <style>
+            /* Override all heading styles */
+            h1, h2, h3, h4, h5, h6, .heading, .title {
+              color: ${headingTextColor} !important;
+              font-family: '${headingFont}', serif !important;
+              font-size: ${headingFontSize}px !important;
+            }
+            
+            /* Override all paragraph and text styles */
+            p, .text, .content, .description, div, span {
+              color: ${paragraphTextColor} !important;
+              font-family: '${paragraphFont}', serif !important;
+              font-size: ${paragraphFontSize}px !important;
+            }
+            
+            /* Override background colors */
+            .bg-primary, .primary-bg {
+              background-color: ${primaryColor} !important;
+            }
+            
+            .bg-secondary, .secondary-bg {
+              background-color: ${secondaryColor} !important;
+            }
+            
+            /* Override gradient backgrounds */
+            .gradient-bg, .bg-gradient {
+              background: linear-gradient(135deg, ${primaryColor} 0%, ${secondaryColor} 100%) !important;
+            }
+            
+            /* Override button colors */
+            .btn, .button, button {
+              background-color: ${primaryColor} !important;
+              border-color: ${primaryColor} !important;
+            }
+            
+            .btn:hover, .button:hover, button:hover {
+              background-color: ${secondaryColor} !important;
+              border-color: ${secondaryColor} !important;
+            }
+            
+            /* Override link colors */
+            a {
+              color: ${primaryColor} !important;
+            }
+            
+            a:hover {
+              color: ${secondaryColor} !important;
+            }
+          </style>
+        `;
+        
+        let updatedHtml = currentHtml;
+        
+        // Remove any existing style injections
+        updatedHtml = updatedHtml.replace(/<style>[\s\S]*?\/\* Override all heading styles \*\/[\s\S]*?<\/style>/g, '');
+        
+        // Inject the new styles at the end of the head or beginning of body
+        if (updatedHtml.includes('</head>')) {
+          updatedHtml = updatedHtml.replace('</head>', `${styleInjection}</head>`);
+        } else if (updatedHtml.includes('<body')) {
+          updatedHtml = updatedHtml.replace(/(<body[^>]*>)/, `$1${styleInjection}`);
+        } else {
+          // If no head or body tags, prepend the styles
+          updatedHtml = styleInjection + updatedHtml;
         }
-        // Clear the unsaved changes flag after successful update
+        
+        // Also update any existing inline styles with regex replacements
+        // Update colors in existing inline styles
+        updatedHtml = updatedHtml.replace(
+          /(style="[^"]*color:\s*)[^;"]+(;?[^"]*")/gi,
+          `$1${headingTextColor}$2`
+        );
+        
+        // Update font families in existing inline styles
+        updatedHtml = updatedHtml.replace(
+          /(style="[^"]*font-family:\s*)[^;"]+(;?[^"]*")/gi,
+          `$1'${headingFont}', serif$2`
+        );
+        
+        // Update background colors
+        updatedHtml = updatedHtml.replace(
+          /(style="[^"]*background-color:\s*)[^;"]+(;?[^"]*")/gi,
+          `$1${primaryColor}$2`
+        );
+        
+        // Update the preview
+        setEmailHtml(updatedHtml);
+        setCapturedHtml(updatedHtml);
+        
+        // Clear the unsaved changes flag
         setHasUnsavedChanges(false);
+      } catch (error) {
+        console.error("Error updating preview:", error);
+      } finally {
+        setIsUpdatingPreview(false);
       }
-    } catch (error) {
-      console.error("Error updating preview:", error);
-    } finally {
-      setIsUpdatingPreview(false);
-    }
+    }, 200); // Reduced delay for faster updates
   };
 
   // Note: Removed automatic preview updates to improve performance
@@ -1185,8 +1231,8 @@ export default function Dashboard({
       {/* Preview Update Modal */}
       <LoadingModal 
         isOpen={isUpdatingPreview}
-        title="Updating Your Preview"
-        subtitle="Applying your beautiful customizations..."
+        title="Applying Your Style Changes"
+        subtitle="Fast styling update in progress..."
       />
 
     </div>
