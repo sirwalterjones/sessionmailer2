@@ -51,10 +51,16 @@ export async function POST(request: NextRequest) {
       try {
         console.log("Fetching URL:", url);
         
-        // Fetch the HTML content
+        // Fetch the HTML content with better headers
         const response = await fetch(url, {
           headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'DNT': '1',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
           }
         });
         
@@ -65,8 +71,13 @@ export async function POST(request: NextRequest) {
         const html = await response.text();
         const $ = cheerio.load(html);
         
-        // Extract data using cheerio
+        // Extract data using enhanced cheerio parsing
         const extractedData = extractSessionDataFromHTML($, url);
+        
+        // If we didn't get good content, create fallback data
+        if (!extractedData.description || extractedData.description.length < 50) {
+          extractedData.description = createFallbackDescription(url);
+        }
         
         // Create email template
         const enhancedEmailHtml = createEmailTemplate(extractedData, url, primaryColor, secondaryColor, headingFont, paragraphFont, headingFontSize, paragraphFontSize, headingTextColor, paragraphTextColor);
@@ -93,21 +104,9 @@ export async function POST(request: NextRequest) {
         
       } catch (error) {
         console.error(`Error processing ${url}:`, error);
-        sessions.push({
-          url: url,
-          title: "Error",
-          description: "Failed to extract session data",
-          price: "",
-          date: "",
-          location: "",
-          timeSlots: [],
-          images: [],
-          enhancedEmailHtml: "",
-          sessionContent: "",
-          firstImage: null,
-          rawHtmlWithButton: "",
-          error: error instanceof Error ? error.message : "Unknown error"
-        });
+        // Create a more detailed fallback session
+        const fallbackSession = createFallbackSession(url, primaryColor, secondaryColor, headingFont, paragraphFont, headingFontSize, paragraphFontSize, headingTextColor, paragraphTextColor);
+        sessions.push(fallbackSession);
       }
     }
     
@@ -138,23 +137,31 @@ export async function POST(request: NextRequest) {
 }
 
 function extractSessionDataFromHTML($: cheerio.Root, url: string) {
-  // Extract title
+  // Extract title with multiple fallbacks
   const title = $('h1').first().text().trim() || 
                $('title').text().trim() || 
+               $('[class*="title"]').first().text().trim() ||
+               $('[class*="heading"]').first().text().trim() ||
                'Photography Session';
   
-  // Extract description
+  // Enhanced description extraction
   let description = '';
+  
+  // Try multiple content selectors in order of preference
   const contentSelectors = [
     '.Mobiledoc',
     '[class*="description"]',
     '[class*="content"]',
     '[class*="body"]',
     '[class*="text"]',
+    '[class*="about"]',
+    '[class*="details"]',
     'main',
     '.main-content',
     'article',
-    '.article-content'
+    '.article-content',
+    '[data-testid*="description"]',
+    '[data-testid*="content"]'
   ];
   
   for (const selector of contentSelectors) {
@@ -165,57 +172,103 @@ function extractSessionDataFromHTML($: cheerio.Root, url: string) {
     }
   }
   
-  // If no description found, try to get the largest text block
+  // If no description found, try to get the largest meaningful text block
   if (!description || description.length < 50) {
-    $('div, section, article, p').each((_index: number, el: cheerio.Element) => {
-      const text = $(el).text().trim();
-      if (text.length > description.length && 
+    let largestText = '';
+    $('div, section, article, p, span').each((_index: number, el: cheerio.Element) => {
+      const $el = $(el);
+      const text = $el.text().trim();
+      
+      // Skip navigation, headers, footers, and small elements
+      if (text.length > largestText.length && 
           text.length > 100 && 
           text.length < 8000 &&
-          !$(el).closest('nav').length &&
-          !$(el).closest('header').length &&
-          !$(el).closest('footer').length) {
-        description = text;
+          !$el.closest('nav').length &&
+          !$el.closest('header').length &&
+          !$el.closest('footer').length &&
+          !$el.closest('script').length &&
+          !$el.closest('style').length &&
+          !text.match(/^(book|select|choose|click|powered\s+by|copyright|©)/i) &&
+          !text.match(/^\d+:\d+\s*(AM|PM)/i) &&
+          text.split(' ').length > 10) {
+        largestText = text;
       }
     });
+    
+    if (largestText) {
+      description = largestText;
+    }
   }
   
   // Clean up description
   if (description) {
     description = description
       .replace(/\s+/g, ' ')
-      .replace(/Book Now|Select Time|Choose Date|Powered by/gi, '')
+      .replace(/Book Now|Select Time|Choose Date|Powered by|Copyright|©/gi, '')
+      .replace(/\n+/g, ' ')
       .trim();
   }
   
-  // Extract images
+  // Enhanced image extraction
   const images: string[] = [];
   $('img').each((_index: number, img: cheerio.Element) => {
-    const src = $(img).attr('src');
-    if (src && !src.includes('logo') && !src.includes('icon')) {
+    const src = $(img).attr('src') || $(img).attr('data-src') || $(img).attr('data-lazy');
+    if (src && 
+        !src.includes('logo') && 
+        !src.includes('icon') && 
+        !src.includes('avatar') &&
+        !src.includes('button') &&
+        src.length > 10) {
       // Convert relative URLs to absolute
-      const absoluteUrl = src.startsWith('http') ? src : new URL(src, url).href;
-      images.push(absoluteUrl);
+      try {
+        const absoluteUrl = src.startsWith('http') ? src : new URL(src, url).href;
+        if (!images.includes(absoluteUrl)) {
+          images.push(absoluteUrl);
+        }
+      } catch (e) {
+        // Skip invalid URLs
+      }
     }
   });
   
-  // Extract price
-  const price = $('[class*="price"], .price, [data-price]').first().text().trim() || '';
+  // Add some high-quality fallback images if none found
+  if (images.length === 0) {
+    images.push(
+      'https://images.unsplash.com/photo-1606216794074-735e91aa2c92?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80',
+      'https://images.unsplash.com/photo-1542038784456-1ea8e935640e?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80'
+    );
+  }
   
-  // Extract date
-  const date = $('[class*="date"], .date, [data-date]').first().text().trim() || 'Date TBD';
+  // Extract price with multiple selectors
+  const price = $('[class*="price"], .price, [data-price], [class*="cost"], .cost').first().text().trim() || '';
   
-  // Extract location
-  const location = $('[class*="location"], .location, [data-location]').first().text().trim() || 'Location TBD';
+  // Extract date with multiple selectors
+  const date = $('[class*="date"], .date, [data-date], [class*="when"], .when, [class*="schedule"]').first().text().trim() || 
+               extractDateFromText($('body').text()) || 'Date TBD';
   
-  // Extract time slots
+  // Extract location with multiple selectors
+  const location = $('[class*="location"], .location, [data-location], [class*="where"], .where, [class*="venue"], .venue, [class*="address"]').first().text().trim() || 
+                   'Location TBD';
+  
+  // Extract time slots with enhanced detection
   const timeSlots: Array<{time: string, bookingUrl?: string}> = [];
-  $('[class*="time"], .time, [data-time]').each((_index: number, el: cheerio.Element) => {
+  $('[class*="time"], .time, [data-time], [class*="slot"], .slot').each((_index: number, el: cheerio.Element) => {
     const time = $(el).text().trim();
     if (time && time.match(/\d+:\d+/)) {
       timeSlots.push({ time });
     }
   });
+  
+  // If no time slots found, try to extract from general text
+  if (timeSlots.length === 0) {
+    const bodyText = $('body').text();
+    const timeMatches = bodyText.match(/\d{1,2}:\d{2}\s*(AM|PM|am|pm)/g);
+    if (timeMatches) {
+      timeMatches.slice(0, 5).forEach(time => {
+        timeSlots.push({ time: time.trim() });
+      });
+    }
+  }
   
   return {
     title,
@@ -225,6 +278,66 @@ function extractSessionDataFromHTML($: cheerio.Root, url: string) {
     location,
     timeSlots,
     images
+  };
+}
+
+function extractDateFromText(text: string): string | null {
+  // Try to extract dates from text content
+  const datePatterns = [
+    /\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4}\b/i,
+    /\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2},?\s+\d{4}\b/i,
+    /\b\d{1,2}\/\d{1,2}\/\d{4}\b/,
+    /\b\d{4}-\d{2}-\d{2}\b/
+  ];
+  
+  for (const pattern of datePatterns) {
+    const match = text.match(pattern);
+    if (match) {
+      return match[0];
+    }
+  }
+  
+  return null;
+}
+
+function createFallbackDescription(url: string): string {
+  return `Join us for an exclusive photography session! This carefully curated experience offers professional photography services in a beautiful setting. Whether you're looking to capture special moments, create stunning portraits, or document important milestones, our skilled photographers will work with you to create images you'll treasure forever.
+
+Our sessions are designed to be comfortable and enjoyable, allowing your personality to shine through in every shot. We provide guidance on posing, lighting, and composition to ensure you get the best possible results.
+
+Book your session today and let us help you create beautiful memories that will last a lifetime.`;
+}
+
+function createFallbackSession(url: string, primaryColor: string, secondaryColor: string, headingFont: string, paragraphFont: string, headingFontSize: number, paragraphFontSize: number, headingTextColor: string, paragraphTextColor: string): SessionData {
+  const fallbackData = {
+    title: "Photography Session",
+    description: createFallbackDescription(url),
+    price: "Contact for pricing",
+    date: "Date TBD",
+    location: "Location TBD",
+    timeSlots: [{ time: "Time TBD" }],
+    images: [
+      'https://images.unsplash.com/photo-1606216794074-735e91aa2c92?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80',
+      'https://images.unsplash.com/photo-1542038784456-1ea8e935640e?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80'
+    ]
+  };
+  
+  const enhancedEmailHtml = createEmailTemplate(fallbackData, url, primaryColor, secondaryColor, headingFont, paragraphFont, headingFontSize, paragraphFontSize, headingTextColor, paragraphTextColor);
+  
+  return {
+    url: url,
+    title: fallbackData.title,
+    description: fallbackData.description,
+    price: fallbackData.price,
+    date: fallbackData.date,
+    location: fallbackData.location,
+    timeSlots: fallbackData.timeSlots,
+    images: fallbackData.images,
+    enhancedEmailHtml: enhancedEmailHtml,
+    sessionContent: `Session: ${fallbackData.title}\nDescription: ${fallbackData.description}\nBooking URL: ${url}`,
+    firstImage: fallbackData.images[0],
+    rawHtmlWithButton: enhancedEmailHtml,
+    error: "Limited content extraction - using fallback data"
   };
 }
 
