@@ -99,8 +99,8 @@ export default function Dashboard({
   const [headingFontSize, setHeadingFontSize] = useState(28);
   const [paragraphFontSize, setParagraphFontSize] = useState(16);
   
-  // Hero image customization state
-  const [selectedHeroImage, setSelectedHeroImage] = useState<string | null>(null);
+  // Hero image customization state - now per session
+  const [sessionHeroImages, setSessionHeroImages] = useState<Record<string, string>>({});
   
   // Available Google Fonts
   const googleFonts = [
@@ -253,11 +253,14 @@ export default function Dashboard({
             setEmailHtml(data.emailHtml || "");
             setCapturedHtml(data.emailHtml || "");
             setRawHtml(data.rawHtml || "");
-            // Set first available image as selected hero image
-            const firstImageFromSessions = data.sessions.find((s: any) => s.firstImage)?.firstImage;
-            if (firstImageFromSessions) {
-              setSelectedHeroImage(firstImageFromSessions);
-            }
+            // Set first available image as selected hero image for each session
+            const newSessionHeroImages: Record<string, string> = {};
+            data.sessions.forEach((session: any) => {
+              if (session.firstImage) {
+                newSessionHeroImages[session.url] = session.firstImage;
+              }
+            });
+            setSessionHeroImages(newSessionHeroImages);
           } else if (data.sessions.length === 1) {
             // Single session
             const session = data.sessions[0];
@@ -266,7 +269,7 @@ export default function Dashboard({
             setRawHtml(session.rawHtmlWithButton || data.rawHtml || "");
             // Set the session's first image as selected hero image
             if (session.firstImage) {
-              setSelectedHeroImage(session.firstImage);
+              setSessionHeroImages({ [session.url]: session.firstImage });
             }
           }
         } else {
@@ -283,7 +286,7 @@ export default function Dashboard({
           }]);
           // Set the first image as selected hero image for legacy responses
           if (data.firstImage) {
-            setSelectedHeroImage(data.firstImage);
+            setSessionHeroImages({ [validUrls[0]]: data.firstImage });
           }
         }
         
@@ -373,7 +376,7 @@ export default function Dashboard({
         paragraphFont,
         headingFontSize,
         paragraphFontSize,
-        selectedHeroImage,
+        sessionHeroImages,
       };
 
       const response = await fetch('/api/projects', {
@@ -413,6 +416,11 @@ export default function Dashboard({
 
   const handleLoadProject = (project: SavedProject) => {
     try {
+      // Set the URL inputs first
+      const urls = project.url.includes(', ') ? project.url.split(', ') : [project.url];
+      setUrlInputs(urls.map((url, index) => ({ id: index + 1, value: url })));
+      setNextId(urls.length + 1);
+      
       // Load the project's customization settings
       if (project.customization) {
         const customization = project.customization as ProjectCustomization;
@@ -424,17 +432,21 @@ export default function Dashboard({
         setParagraphFont(customization.paragraphFont || "Georgia");
         setHeadingFontSize(customization.headingFontSize || 28);
         setParagraphFontSize(customization.paragraphFontSize || 16);
-        setSelectedHeroImage(customization.selectedHeroImage || null);
+        // Handle both legacy and new hero image systems
+        if (customization.sessionHeroImages) {
+          setSessionHeroImages(customization.sessionHeroImages);
+        } else if (customization.selectedHeroImage) {
+          // Legacy support - convert to new format
+          const firstUrl = urls[0];
+          if (firstUrl) {
+            setSessionHeroImages({ [firstUrl]: customization.selectedHeroImage });
+          }
+        }
       }
 
       // Load the email HTML
       setEmailHtml(project.email_html);
       setCapturedHtml(project.email_html);
-      
-      // Set the URL inputs
-      const urls = project.url.includes(', ') ? project.url.split(', ') : [project.url];
-      setUrlInputs(urls.map((url, index) => ({ id: index + 1, value: url })));
-      setNextId(urls.length + 1);
       
       // Mark as generated
       setIsGenerated(true);
@@ -495,24 +507,42 @@ export default function Dashboard({
     if (isGenerated) setHasUnsavedChanges(true);
   };
 
-  const handleHeroImageChange = (imageUrl: string) => {
-    setSelectedHeroImage(imageUrl);
+  const handleHeroImageChange = (imageUrl: string, sessionUrl?: string) => {
+    if (sessionUrl) {
+      // Set hero image for specific session
+      setSessionHeroImages(prev => ({
+        ...prev,
+        [sessionUrl]: imageUrl
+      }));
+    } else {
+      // For single session or global, use the first session URL
+      const firstSessionUrl = sessions[0]?.url;
+      if (firstSessionUrl) {
+        setSessionHeroImages(prev => ({
+          ...prev,
+          [firstSessionUrl]: imageUrl
+        }));
+      }
+    }
     setHasUnsavedChanges(true);
   };
 
   // Extract all available images from sessions
   const getAllAvailableImages = () => {
-    const allImages: Array<{url: string, source: string}> = [];
+    const allImages: Array<{url: string, source: string, sessionUrl: string}> = [];
     const seenUrls = new Set<string>();
     
     sessions.forEach((session, sessionIndex) => {
       const sessionTitle = session.title || `Session ${sessionIndex + 1}`;
+      const currentHeroForSession = sessionHeroImages[session.url];
       
-      // Always add firstImage if available (this is the current/default hero)
+      // Always add firstImage if available (this is the original/default hero)
       if (session.firstImage && !seenUrls.has(session.firstImage)) {
+        const isCurrentHero = currentHeroForSession === session.firstImage || !currentHeroForSession;
         allImages.push({
           url: session.firstImage,
-          source: `${sessionTitle} (Default Hero)`
+          source: isCurrentHero ? `${sessionTitle} (Current Hero)` : `${sessionTitle} (Original Hero)`,
+          sessionUrl: session.url
         });
         seenUrls.add(session.firstImage);
       }
@@ -521,14 +551,24 @@ export default function Dashboard({
       if (session.images && Array.isArray(session.images)) {
         session.images.forEach((img: string, imgIndex: number) => {
           if (img && !seenUrls.has(img)) {
-            // If this image is the same as firstImage, label it differently
-            const label = img === session.firstImage 
-              ? `${sessionTitle} (Current Hero)` 
-              : `${sessionTitle} (Image ${imgIndex + 1})`;
+            const isCurrentHero = currentHeroForSession === img;
+            const isOriginalHero = img === session.firstImage;
+            
+            let label;
+            if (isCurrentHero && isOriginalHero) {
+              label = `${sessionTitle} (Current Hero)`;
+            } else if (isCurrentHero) {
+              label = `${sessionTitle} (Selected Hero)`;
+            } else if (isOriginalHero) {
+              label = `${sessionTitle} (Original Hero)`;
+            } else {
+              label = `${sessionTitle} (Image ${imgIndex + 1})`;
+            }
             
             allImages.push({
               url: img,
-              source: label
+              source: label,
+              sessionUrl: session.url
             });
             seenUrls.add(img);
           }
@@ -538,9 +578,11 @@ export default function Dashboard({
       // If no images array but we have firstImage, ensure it's included
       // (This handles cases where API doesn't return full images array)
       if (!session.images && session.firstImage && !seenUrls.has(session.firstImage)) {
+        const isCurrentHero = currentHeroForSession === session.firstImage || !currentHeroForSession;
         allImages.push({
           url: session.firstImage,
-          source: `${sessionTitle} (Hero Image)`
+          source: isCurrentHero ? `${sessionTitle} (Current Hero)` : `${sessionTitle} (Original Hero)`,
+          sessionUrl: session.url
         });
         seenUrls.add(session.firstImage);
       }
@@ -551,11 +593,13 @@ export default function Dashboard({
       allImages.push(
         {
           url: 'https://images.unsplash.com/photo-1606216794074-735e91aa2c92?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80',
-          source: 'Fallback Image 1'
+          source: 'Fallback Image 1',
+          sessionUrl: sessions[0]?.url || ''
         },
         {
           url: 'https://images.unsplash.com/photo-1542038784456-1ea8e935640e?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80',
-          source: 'Fallback Image 2'
+          source: 'Fallback Image 2',
+          sessionUrl: sessions[0]?.url || ''
         }
       );
     }
@@ -698,39 +742,18 @@ export default function Dashboard({
         // Note: Removed problematic regex replacements that were affecting heading backgrounds
         // The CSS injection above with !important declarations should handle all styling
         
-        // Replace hero image if a custom one is selected
-        if (selectedHeroImage) {
-          // Find and replace the first/main image in the email
-          // Look for various hero image patterns
-          const heroImagePatterns = [
-            // Standard img tags that might be hero images
-            /<img[^>]*class="[^"]*hero[^"]*"[^>]*src="[^"]*"[^>]*>/gi,
-            /<img[^>]*src="[^"]*"[^>]*class="[^"]*hero[^"]*"[^>]*>/gi,
-            // First image in the email (likely hero)
-            /<img[^>]*src="[^"]*"[^>]*>/i,
-            // Images with specific styling that suggests hero usage
-            /<img[^>]*style="[^"]*width:\s*100%[^"]*"[^>]*>/gi,
-            /<img[^>]*style="[^"]*max-width:\s*100%[^"]*"[^>]*>/gi
-          ];
-          
-          let imageReplaced = false;
-          for (const pattern of heroImagePatterns) {
-            if (updatedHtml.match(pattern) && !imageReplaced) {
-              updatedHtml = updatedHtml.replace(pattern, (match) => {
-                // Replace the src attribute while preserving other attributes
-                const newMatch = match.replace(/src="[^"]*"/i, `src="${selectedHeroImage}"`);
-                imageReplaced = true;
-                return newMatch;
-              });
-              break;
+        // Replace hero images for each session if custom ones are selected
+        sessions.forEach((session) => {
+          const customHeroImage = sessionHeroImages[session.url];
+          if (customHeroImage && customHeroImage !== session.firstImage) {
+            // Replace the original firstImage with the custom hero image
+            const originalImageEscaped = session.firstImage?.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            if (originalImageEscaped) {
+              const imagePattern = new RegExp(`src="${originalImageEscaped}"`, 'gi');
+              updatedHtml = updatedHtml.replace(imagePattern, `src="${customHeroImage}"`);
             }
           }
-          
-          // If no hero image pattern found, try to replace the first image
-          if (!imageReplaced) {
-            updatedHtml = updatedHtml.replace(/(<img[^>]*src=")[^"]*("[^>]*>)/i, `$1${selectedHeroImage}$2`);
-          }
-        }
+        });
         
         // Update the preview
         setEmailHtml(updatedHtml);
@@ -756,33 +779,33 @@ export default function Dashboard({
         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-gradient-to-br from-green-400 to-blue-400 rounded-full mix-blend-multiply filter blur-xl opacity-20 floating-animation" style={{animationDelay: '4s'}}></div>
       </div>
 
-      <div className="relative z-10 w-full p-4 md:p-8">
+      <div className="relative z-10 w-full p-3 sm:p-4 md:p-8">
         <div className="max-w-7xl mx-auto">
           {/* Hero Header */}
-          <div className="text-center mb-12">
-            <div className="inline-flex items-center gap-3 mb-6">
-              <div className="p-3 bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl shadow-lg pulse-glow">
-                <Mail className="h-8 w-8 text-white" />
+          <div className="text-center mb-8 sm:mb-12">
+            <div className="inline-flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
+              <div className="p-2 sm:p-3 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl sm:rounded-2xl shadow-lg pulse-glow">
+                <Mail className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
               </div>
-              <h1 className="text-5xl font-bold bg-gradient-to-r from-purple-600 via-pink-600 to-blue-600 bg-clip-text text-transparent">
+              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-purple-600 via-pink-600 to-blue-600 bg-clip-text text-transparent">
                 SessionMailer
               </h1>
             </div>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed">
+            <p className="text-base sm:text-lg lg:text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed px-4 sm:px-0">
               Transform your photo sessions into stunning email templates with AI-powered extraction and beautiful customization
             </p>
-            <div className="mt-4 p-4 bg-gradient-to-r from-purple-100 to-pink-100 rounded-2xl border-2 border-purple-200 max-w-2xl mx-auto">
-              <p className="text-lg font-semibold text-purple-800 text-center">
+            <div className="mt-4 p-3 sm:p-4 bg-gradient-to-r from-purple-100 to-pink-100 rounded-xl sm:rounded-2xl border-2 border-purple-200 max-w-2xl mx-auto">
+              <p className="text-base sm:text-lg font-semibold text-purple-800 text-center">
                 🚀 Supercharge and Simplify your UseSession.com Email Marketing!
               </p>
             </div>
-            <div className="flex items-center justify-center gap-6 mt-6">
-              <Badge variant="secondary" className="px-4 py-2 text-sm font-medium bg-gradient-to-r from-purple-100 to-pink-100 text-purple-700 border-0">
-                <Zap className="h-4 w-4 mr-2" />
+            <div className="flex items-center justify-center gap-3 sm:gap-6 mt-4 sm:mt-6 flex-wrap">
+              <Badge variant="secondary" className="px-3 sm:px-4 py-1 sm:py-2 text-xs sm:text-sm font-medium bg-gradient-to-r from-purple-100 to-pink-100 text-purple-700 border-0">
+                <Zap className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
                 AI-Powered
               </Badge>
-              <Badge variant="secondary" className="px-4 py-2 text-sm font-medium bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-700 border-0">
-                <Wand2 className="h-4 w-4 mr-2" />
+              <Badge variant="secondary" className="px-3 sm:px-4 py-1 sm:py-2 text-xs sm:text-sm font-medium bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-700 border-0">
+                <Wand2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
                 Instant Generation
               </Badge>
             </div>
@@ -829,9 +852,9 @@ export default function Dashboard({
                                 placeholder="https://book.usesession.com/s/..."
                                 value={input.value}
                                 onChange={(e) => updateUrlInput(input.id, e.target.value)}
-                                className="pl-12 h-12 border-2 border-gray-200 focus:border-purple-400 transition-all duration-300 bg-white/70 backdrop-blur-sm"
+                                className="pl-10 sm:pl-12 h-10 sm:h-12 border-2 border-gray-200 focus:border-purple-400 transition-all duration-300 bg-white/70 backdrop-blur-sm text-sm sm:text-base"
                               />
-                              <Link className="absolute left-4 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                              <Link className="absolute left-3 sm:left-4 top-1/2 transform -translate-y-1/2 h-3 w-3 sm:h-4 sm:w-4 text-gray-400" />
                             </div>
                             {urlInputs.length > 1 && (
                               <Button
@@ -839,9 +862,9 @@ export default function Dashboard({
                                 variant="outline"
                                 size="sm"
                                 onClick={() => removeUrlInput(input.id)}
-                                className="h-12 px-4 border-2 border-red-200 hover:border-red-400 hover:bg-red-50 transition-all duration-300"
+                                className="h-10 sm:h-12 px-3 sm:px-4 border-2 border-red-200 hover:border-red-400 hover:bg-red-50 transition-all duration-300"
                               >
-                                <Minus className="h-4 w-4 text-red-500" />
+                                <Minus className="h-3 w-3 sm:h-4 sm:w-4 text-red-500" />
                               </Button>
                             )}
                           </div>
@@ -853,10 +876,11 @@ export default function Dashboard({
                             variant="outline"
                             size="sm"
                             onClick={addUrlInput}
-                            className="gap-2 border-2 border-green-200 hover:border-green-400 hover:bg-green-50 transition-all duration-300"
+                            className="gap-1 sm:gap-2 border-2 border-green-200 hover:border-green-400 hover:bg-green-50 transition-all duration-300 text-xs sm:text-sm px-3 sm:px-4 py-2"
                           >
-                            <Plus className="h-4 w-4 text-green-500" />
-                            Add URL
+                            <Plus className="h-3 w-3 sm:h-4 sm:w-4 text-green-500" />
+                            <span className="hidden xs:inline">Add URL</span>
+                            <span className="xs:hidden">Add</span>
                           </Button>
                           <div className="flex items-center gap-2">
                             <div className="w-2 h-2 bg-gradient-to-r from-purple-400 to-pink-400 rounded-full"></div>
@@ -870,18 +894,20 @@ export default function Dashboard({
                       <Button
                         type="submit"
                         disabled={isGenerating || urlInputs.every(input => !input.value.trim())}
-                        className="w-full h-14 text-lg font-semibold sexy-button border-0 text-white relative overflow-hidden"
+                        className="w-full h-12 sm:h-14 text-base sm:text-lg font-semibold sexy-button border-0 text-white relative overflow-hidden"
                       >
-                        <div className="flex items-center justify-center gap-3">
+                        <div className="flex items-center justify-center gap-2 sm:gap-3">
                           {isGenerating ? (
                             <>
-                              <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></div>
-                              Generating Magic...
+                              <div className="animate-spin h-4 w-4 sm:h-5 sm:w-5 border-2 border-white border-t-transparent rounded-full"></div>
+                              <span className="hidden xs:inline">Generating Magic...</span>
+                              <span className="xs:hidden">Generating...</span>
                             </>
                           ) : (
                             <>
-                              <Sparkles className="h-5 w-5" />
-                              Generate Beautiful Email
+                              <Sparkles className="h-4 w-4 sm:h-5 sm:w-5" />
+                              <span className="hidden sm:inline">Generate Beautiful Email</span>
+                              <span className="sm:hidden">Generate Email</span>
                             </>
                           )}
                         </div>
@@ -925,7 +951,7 @@ export default function Dashboard({
 
             {/* Customization and Preview Section */}
             {isGenerated ? (
-              <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
                 {/* Customization Panel */}
                 <Card className="glass-card border-0 shadow-2xl card-hover">
                   <CardHeader className="pb-6">
@@ -945,18 +971,21 @@ export default function Dashboard({
                   </CardHeader>
                   <CardContent>
                     <Tabs defaultValue="colors" className="w-full">
-                      <TabsList className="grid w-full grid-cols-3 bg-white/50 backdrop-blur-sm">
-                        <TabsTrigger value="colors" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-md">
-                          <Palette className="h-4 w-4" />
-                          Colors
+                      <TabsList className="grid w-full grid-cols-3 bg-white/50 backdrop-blur-sm h-auto p-1">
+                        <TabsTrigger value="colors" className="flex items-center gap-1 sm:gap-2 data-[state=active]:bg-white data-[state=active]:shadow-md text-xs sm:text-sm py-2 px-2 sm:px-3">
+                          <Palette className="h-3 w-3 sm:h-4 sm:w-4" />
+                          <span className="hidden xs:inline">Colors</span>
+                          <span className="xs:hidden">🎨</span>
                         </TabsTrigger>
-                        <TabsTrigger value="typography" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-md">
-                          <Type className="h-4 w-4" />
-                          Typography
+                        <TabsTrigger value="typography" className="flex items-center gap-1 sm:gap-2 data-[state=active]:bg-white data-[state=active]:shadow-md text-xs sm:text-sm py-2 px-2 sm:px-3">
+                          <Type className="h-3 w-3 sm:h-4 sm:w-4" />
+                          <span className="hidden xs:inline">Typography</span>
+                          <span className="xs:hidden">Aa</span>
                         </TabsTrigger>
-                        <TabsTrigger value="images" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-md">
-                          <Image className="h-4 w-4" />
-                          Images
+                        <TabsTrigger value="images" className="flex items-center gap-1 sm:gap-2 data-[state=active]:bg-white data-[state=active]:shadow-md text-xs sm:text-sm py-2 px-2 sm:px-3">
+                          <Image className="h-3 w-3 sm:h-4 sm:w-4" />
+                          <span className="hidden xs:inline">Images</span>
+                          <span className="xs:hidden">🖼️</span>
                         </TabsTrigger>
                       </TabsList>
 
@@ -968,7 +997,7 @@ export default function Dashboard({
                             <span className="text-lg font-semibold text-gray-800">Brand Colors</span>
                           </div>
                           
-                          <div className="grid grid-cols-2 gap-6">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                             <div className="space-y-3">
                               <label className="text-sm font-medium text-gray-700">Primary Color</label>
                               <div className="flex gap-3">
@@ -1003,7 +1032,7 @@ export default function Dashboard({
                             </div>
                           </div>
 
-                          <div className="grid grid-cols-2 gap-6">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                             <div className="space-y-3">
                               <label className="text-sm font-medium text-gray-700">Heading Text</label>
                               <div className="flex gap-3">
@@ -1085,7 +1114,7 @@ export default function Dashboard({
                             <span className="text-lg font-semibold text-gray-800">Typography</span>
                           </div>
                           
-                          <div className="grid grid-cols-2 gap-6">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                             <div className="space-y-3">
                               <label className="text-sm font-medium text-gray-700">Heading Font</label>
                               <select
@@ -1112,7 +1141,7 @@ export default function Dashboard({
                             </div>
                           </div>
 
-                          <div className="grid grid-cols-2 gap-6">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                             <div className="space-y-3">
                               <label className="text-sm font-medium text-gray-700">Heading Size</label>
                               <div className="flex items-center gap-3">
@@ -1210,16 +1239,16 @@ export default function Dashboard({
                                 Choose from the images extracted from your sessions to use as the hero image in your email template.
                               </p>
                               
-                              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
                                 {getAllAvailableImages().map((image, index) => (
                                   <div
                                     key={index}
                                     className={`relative group cursor-pointer rounded-xl overflow-hidden border-4 transition-all duration-300 ${
-                                      selectedHeroImage === image.url
+                                      sessionHeroImages[image.sessionUrl] === image.url
                                         ? 'border-blue-500 shadow-lg scale-105'
                                         : 'border-gray-200 hover:border-blue-300 hover:shadow-md'
                                     }`}
-                                    onClick={() => handleHeroImageChange(image.url)}
+                                    onClick={() => handleHeroImageChange(image.url, image.sessionUrl)}
                                   >
                                     <div className="aspect-video relative">
                                       <img
@@ -1231,7 +1260,7 @@ export default function Dashboard({
                                           target.src = 'https://images.unsplash.com/photo-1606216794074-735e91aa2c92?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80';
                                         }}
                                       />
-                                      {selectedHeroImage === image.url && (
+                                      {sessionHeroImages[image.sessionUrl] === image.url && (
                                         <div className="absolute inset-0 bg-blue-500/20 flex items-center justify-center">
                                           <div className="bg-blue-500 text-white rounded-full p-2">
                                             <Eye className="h-4 w-4" />
@@ -1248,32 +1277,47 @@ export default function Dashboard({
                                 ))}
                               </div>
                               
-                              {selectedHeroImage && (
-                                <div className="mt-6 p-4 bg-blue-50 border-2 border-blue-200 rounded-xl">
-                                  <div className="flex items-center gap-2 mb-2">
-                                    <Eye className="h-4 w-4 text-blue-600" />
-                                    <span className="text-sm font-medium text-blue-800">Selected Hero Image</span>
-                                  </div>
-                                  <div className="flex items-center gap-3">
-                                    <img
-                                      src={selectedHeroImage}
-                                      alt="Selected hero"
-                                      className="w-16 h-16 object-cover rounded-lg border-2 border-blue-300"
-                                    />
-                                    <div className="flex-1">
-                                      <p className="text-sm text-blue-700 font-medium">
-                                        This image will be used as the hero image in your email template.
-                                      </p>
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => setSelectedHeroImage(null)}
-                                        className="mt-2 text-xs border-blue-300 text-blue-600 hover:bg-blue-100"
-                                      >
-                                        Reset to Default
-                                      </Button>
-                                    </div>
-                                  </div>
+                              {Object.keys(sessionHeroImages).length > 0 && (
+                                <div className="mt-6 space-y-4">
+                                  {Object.entries(sessionHeroImages).map(([sessionUrl, heroImageUrl]) => {
+                                    const session = sessions.find(s => s.url === sessionUrl);
+                                    const sessionTitle = session?.title || sessionUrl;
+                                    return (
+                                      <div key={sessionUrl} className="p-4 bg-blue-50 border-2 border-blue-200 rounded-xl">
+                                        <div className="flex items-center gap-2 mb-2">
+                                          <Eye className="h-4 w-4 text-blue-600" />
+                                          <span className="text-sm font-medium text-blue-800">
+                                            Hero Image for {sessionTitle}
+                                          </span>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                          <img
+                                            src={heroImageUrl}
+                                            alt="Selected hero"
+                                            className="w-16 h-16 object-cover rounded-lg border-2 border-blue-300"
+                                          />
+                                          <div className="flex-1">
+                                            <p className="text-sm text-blue-700 font-medium">
+                                              This image will be used as the hero image for this session.
+                                            </p>
+                                            <Button
+                                              variant="outline"
+                                              size="sm"
+                                              onClick={() => {
+                                                const newImages = { ...sessionHeroImages };
+                                                delete newImages[sessionUrl];
+                                                setSessionHeroImages(newImages);
+                                                setHasUnsavedChanges(true);
+                                              }}
+                                              className="mt-2 text-xs border-blue-300 text-blue-600 hover:bg-blue-100"
+                                            >
+                                              Reset to Default
+                                            </Button>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
                                 </div>
                               )}
                             </div>
@@ -1310,14 +1354,15 @@ export default function Dashboard({
                         <div className="flex justify-center">
                           <Button
                             onClick={updatePreview}
-                            className={`gap-2 border-0 text-white font-semibold px-8 py-3 shadow-lg transition-all duration-300 ${
+                            className={`gap-2 border-0 text-white font-semibold px-6 sm:px-8 py-2 sm:py-3 shadow-lg transition-all duration-300 text-sm sm:text-base ${
                               hasUnsavedChanges 
                                 ? 'sexy-button animate-pulse' 
                                 : 'bg-gradient-to-r from-gray-400 to-gray-500 hover:from-gray-500 hover:to-gray-600'
                             }`}
                           >
-                            <Wand2 className="h-4 w-4" />
-                            Update Preview
+                            <Wand2 className="h-3 w-3 sm:h-4 sm:w-4" />
+                            <span className="hidden xs:inline">Update Preview</span>
+                            <span className="xs:hidden">Update</span>
                             {hasUnsavedChanges && <span className="ml-1 text-xs">•</span>}
                           </Button>
                         </div>
@@ -1345,15 +1390,16 @@ export default function Dashboard({
                       </div>
                       <Button
                         onClick={handleCopyHtml}
-                        className="gap-2 sexy-button border-0 text-white font-semibold px-6 py-3 shadow-lg"
+                        className="gap-2 sexy-button border-0 text-white font-semibold px-4 sm:px-6 py-2 sm:py-3 shadow-lg text-sm sm:text-base"
                       >
-                        <Copy className="h-4 w-4" />
-                        {htmlCopied ? "✅ Copied!" : "Copy HTML"}
+                        <Copy className="h-3 w-3 sm:h-4 sm:w-4" />
+                        <span className="hidden xs:inline">{htmlCopied ? "✅ Copied!" : "Copy HTML"}</span>
+                        <span className="xs:hidden">{htmlCopied ? "✅" : "📋"}</span>
                       </Button>
                     </div>
                   </CardHeader>
                   <CardContent className="p-0 overflow-hidden">
-                    <div className="border-2 border-gray-200 rounded-2xl h-[600px] overflow-auto relative bg-white shadow-inner">
+                    <div className="border-2 border-gray-200 rounded-2xl h-[400px] sm:h-[500px] lg:h-[600px] overflow-auto relative bg-white shadow-inner">
                       
                       {isGenerated && (emailHtml || capturedHtml) ? (
                         <div className="h-full">

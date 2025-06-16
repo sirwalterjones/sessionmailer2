@@ -83,7 +83,8 @@ export type ProjectCustomization = {
   paragraphFont: string
   headingFontSize: number
   paragraphFontSize: number
-  selectedHeroImage?: string | null
+  selectedHeroImage?: string | null // Legacy support
+  sessionHeroImages?: Record<string, string> // New per-session hero images
 }
 
 // Type for saved project

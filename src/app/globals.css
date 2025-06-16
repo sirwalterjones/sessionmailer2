@@ -135,3 +135,16 @@
     box-shadow: 0 0 30px rgba(102, 126, 234, 0.8);
   }
 }
+
+/* Custom mobile breakpoints */
+@media (max-width: 475px) {
+  .xs\:hidden {
+    display: none !important;
+  }
+}
+
+@media (min-width: 476px) {
+  .xs\:inline {
+    display: inline !important;
+  }
+}

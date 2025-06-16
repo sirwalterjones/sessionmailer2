@@ -34,17 +34,17 @@ export default function Navbar() {
             
             {/* Brand Name */}
             <div className="flex flex-col">
-              <h1 className="text-xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
+              <h1 className="text-lg sm:text-xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
                 SessionMailer
               </h1>
-              <p className="text-xs text-gray-500 -mt-1">
+              <p className="text-xs text-gray-500 -mt-1 hidden sm:block">
                 Email Templates for Photographers
               </p>
             </div>
           </Link>
 
           {/* Navigation Links */}
-          <div className="flex items-center space-x-6">
+          <div className="flex items-center space-x-3 sm:space-x-6">
             <nav className="hidden md:flex items-center space-x-6">
               <Link 
                 href="/" 
@@ -123,14 +123,14 @@ export default function Navbar() {
                 </DropdownMenu>
               </div>
             ) : (
-              <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-2 sm:space-x-3">
                 <Link href="/auth/signin">
-                  <Button variant="ghost" size="lg" className="text-lg">
+                  <Button variant="ghost" size="sm" className="text-sm sm:text-base px-3 sm:px-4">
                     Sign In
                   </Button>
                 </Link>
                 <Link href="/auth/signup">
-                  <Button size="lg" className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-lg">
+                  <Button size="sm" className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-sm sm:text-base px-3 sm:px-4">
                     Sign Up
                   </Button>
                 </Link>

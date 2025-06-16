@@ -880,14 +880,7 @@ function createEmailTemplate(data: any, originalUrl: string, primaryColor: strin
             background-color: #fafafa;
             border-radius: 8px;
         }
-        .footer {
-            text-align: center;
-            padding: 20px;
-            background-color: #f8f9fa;
-            color: #666;
-            font-size: 12px;
-            border-top: 1px solid #eee;
-        }
+
         .gallery-container {
             display: flex;
             justify-content: center;
@@ -983,10 +976,7 @@ function createEmailTemplate(data: any, originalUrl: string, primaryColor: strin
                 padding: 20px 15px !important;
                 margin: 20px 0 !important;
             }
-            .footer {
-                padding: 15px !important;
-                font-size: 11px !important;
-            }
+
             .hero-image {
                 max-height: 250px !important;
             }
@@ -1048,9 +1038,7 @@ function createEmailTemplate(data: any, originalUrl: string, primaryColor: strin
             </div>
         </div>
         
-        <div class="footer">
-            <p style="margin: 0;">This email was generated from your photography session booking page.</p>
-        </div>
+
     </div>
 </body>
 </html>`;
