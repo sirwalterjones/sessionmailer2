@@ -47,11 +47,26 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    // Launch browser
-    browser = await chromium.launch({
+    // Launch browser - use system Chromium in production
+    const isProduction = process.env.NODE_ENV === 'production';
+    const launchOptions: any = {
       headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
-    });
+      args: [
+        "--no-sandbox", 
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage",
+        "--disable-gpu",
+        "--disable-web-security",
+        "--disable-features=VizDisplayCompositor"
+      ],
+    };
+
+    // In production (Fly.io), use system Chromium
+    if (isProduction && process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH) {
+      launchOptions.executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
+    }
+
+    browser = await chromium.launch(launchOptions);
     
     const context = await browser.newContext({
       viewport: { width: 1200, height: 800 },
