@@ -83,6 +83,7 @@ export type ProjectCustomization = {
   paragraphFont: string
   headingFontSize: number
   paragraphFontSize: number
+  selectedHeroImage?: string | null
 }
 
 // Type for saved project

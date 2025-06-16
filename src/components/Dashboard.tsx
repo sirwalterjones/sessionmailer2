@@ -33,6 +33,7 @@ import {
   Mail,
   Link,
   Wand2,
+  Image,
 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
@@ -96,6 +97,9 @@ export default function Dashboard({
   const [paragraphFont, setParagraphFont] = useState("Georgia");
   const [headingFontSize, setHeadingFontSize] = useState(28);
   const [paragraphFontSize, setParagraphFontSize] = useState(16);
+  
+  // Hero image customization state
+  const [selectedHeroImage, setSelectedHeroImage] = useState<string | null>(null);
   
   // Available Google Fonts
   const googleFonts = [
@@ -345,6 +349,7 @@ export default function Dashboard({
         paragraphFont,
         headingFontSize,
         paragraphFontSize,
+        selectedHeroImage,
       };
 
       const response = await fetch('/api/projects', {
@@ -395,6 +400,7 @@ export default function Dashboard({
         setParagraphFont(customization.paragraphFont || "Georgia");
         setHeadingFontSize(customization.headingFontSize || 28);
         setParagraphFontSize(customization.paragraphFontSize || 16);
+        setSelectedHeroImage(customization.selectedHeroImage || null);
       }
 
       // Load the email HTML
@@ -462,6 +468,40 @@ export default function Dashboard({
   const handleParagraphFontSizeChange = (size: number) => {
     setParagraphFontSize(size);
     if (isGenerated) setHasUnsavedChanges(true);
+  };
+
+  const handleHeroImageChange = (imageUrl: string) => {
+    setSelectedHeroImage(imageUrl);
+    setHasUnsavedChanges(true);
+  };
+
+  // Extract all available images from sessions
+  const getAllAvailableImages = () => {
+    const allImages: Array<{url: string, source: string}> = [];
+    
+    sessions.forEach((session, sessionIndex) => {
+      // Add firstImage if available
+      if (session.firstImage) {
+        allImages.push({
+          url: session.firstImage,
+          source: `${session.title || `Session ${sessionIndex + 1}`} (Hero)`
+        });
+      }
+      
+      // Add other images if session has an images array
+      if ((session as any).images && Array.isArray((session as any).images)) {
+        (session as any).images.forEach((img: string, imgIndex: number) => {
+          if (img && img !== session.firstImage) {
+            allImages.push({
+              url: img,
+              source: `${session.title || `Session ${sessionIndex + 1}`} (Image ${imgIndex + 1})`
+            });
+          }
+        });
+      }
+    });
+    
+    return allImages;
   };
 
   // Fast client-side styling update - no API calls needed!
@@ -598,6 +638,40 @@ export default function Dashboard({
         
         // Note: Removed problematic regex replacements that were affecting heading backgrounds
         // The CSS injection above with !important declarations should handle all styling
+        
+        // Replace hero image if a custom one is selected
+        if (selectedHeroImage) {
+          // Find and replace the first/main image in the email
+          // Look for various hero image patterns
+          const heroImagePatterns = [
+            // Standard img tags that might be hero images
+            /<img[^>]*class="[^"]*hero[^"]*"[^>]*src="[^"]*"[^>]*>/gi,
+            /<img[^>]*src="[^"]*"[^>]*class="[^"]*hero[^"]*"[^>]*>/gi,
+            // First image in the email (likely hero)
+            /<img[^>]*src="[^"]*"[^>]*>/i,
+            // Images with specific styling that suggests hero usage
+            /<img[^>]*style="[^"]*width:\s*100%[^"]*"[^>]*>/gi,
+            /<img[^>]*style="[^"]*max-width:\s*100%[^"]*"[^>]*>/gi
+          ];
+          
+          let imageReplaced = false;
+          for (const pattern of heroImagePatterns) {
+            if (updatedHtml.match(pattern) && !imageReplaced) {
+              updatedHtml = updatedHtml.replace(pattern, (match) => {
+                // Replace the src attribute while preserving other attributes
+                const newMatch = match.replace(/src="[^"]*"/i, `src="${selectedHeroImage}"`);
+                imageReplaced = true;
+                return newMatch;
+              });
+              break;
+            }
+          }
+          
+          // If no hero image pattern found, try to replace the first image
+          if (!imageReplaced) {
+            updatedHtml = updatedHtml.replace(/(<img[^>]*src=")[^"]*("[^>]*>)/i, `$1${selectedHeroImage}$2`);
+          }
+        }
         
         // Update the preview
         setEmailHtml(updatedHtml);
@@ -807,7 +881,7 @@ export default function Dashboard({
                   </CardHeader>
                   <CardContent>
                     <Tabs defaultValue="colors" className="w-full">
-                      <TabsList className="grid w-full grid-cols-2 bg-white/50 backdrop-blur-sm">
+                      <TabsList className="grid w-full grid-cols-3 bg-white/50 backdrop-blur-sm">
                         <TabsTrigger value="colors" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-md">
                           <Palette className="h-4 w-4" />
                           Colors
@@ -815,6 +889,10 @@ export default function Dashboard({
                         <TabsTrigger value="typography" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-md">
                           <Type className="h-4 w-4" />
                           Typography
+                        </TabsTrigger>
+                        <TabsTrigger value="images" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-md">
+                          <Image className="h-4 w-4" />
+                          Images
                         </TabsTrigger>
                       </TabsList>
 
@@ -1051,6 +1129,101 @@ export default function Dashboard({
                               </p>
                             </div>
                           </div>
+                        </div>
+                      </TabsContent>
+
+                      <TabsContent value="images" className="space-y-8 mt-8">
+                        {/* Hero Image customization content */}
+                        <div className="grid gap-6">
+                          <div className="flex items-center gap-3 mb-4">
+                            <div className="w-3 h-3 bg-gradient-to-r from-green-500 to-teal-500 rounded-full"></div>
+                            <span className="text-lg font-semibold text-gray-800">Hero Image Selection</span>
+                          </div>
+                          
+                          {isGenerated && sessions.length > 0 ? (
+                            <div className="space-y-4">
+                              <p className="text-sm text-gray-600">
+                                Choose from the images extracted from your sessions to use as the hero image in your email template.
+                              </p>
+                              
+                              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                                {getAllAvailableImages().map((image, index) => (
+                                  <div
+                                    key={index}
+                                    className={`relative group cursor-pointer rounded-xl overflow-hidden border-4 transition-all duration-300 ${
+                                      selectedHeroImage === image.url
+                                        ? 'border-blue-500 shadow-lg scale-105'
+                                        : 'border-gray-200 hover:border-blue-300 hover:shadow-md'
+                                    }`}
+                                    onClick={() => handleHeroImageChange(image.url)}
+                                  >
+                                    <div className="aspect-video relative">
+                                      <img
+                                        src={image.url}
+                                        alt={image.source}
+                                        className="w-full h-full object-cover"
+                                        onError={(e) => {
+                                          const target = e.target as HTMLImageElement;
+                                          target.src = 'https://images.unsplash.com/photo-1606216794074-735e91aa2c92?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80';
+                                        }}
+                                      />
+                                      {selectedHeroImage === image.url && (
+                                        <div className="absolute inset-0 bg-blue-500/20 flex items-center justify-center">
+                                          <div className="bg-blue-500 text-white rounded-full p-2">
+                                            <Eye className="h-4 w-4" />
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                    <div className="p-3 bg-white">
+                                      <p className="text-xs text-gray-600 truncate" title={image.source}>
+                                        {image.source}
+                                      </p>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                              
+                              {selectedHeroImage && (
+                                <div className="mt-6 p-4 bg-blue-50 border-2 border-blue-200 rounded-xl">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <Eye className="h-4 w-4 text-blue-600" />
+                                    <span className="text-sm font-medium text-blue-800">Selected Hero Image</span>
+                                  </div>
+                                  <div className="flex items-center gap-3">
+                                    <img
+                                      src={selectedHeroImage}
+                                      alt="Selected hero"
+                                      className="w-16 h-16 object-cover rounded-lg border-2 border-blue-300"
+                                    />
+                                    <div className="flex-1">
+                                      <p className="text-sm text-blue-700 font-medium">
+                                        This image will be used as the hero image in your email template.
+                                      </p>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setSelectedHeroImage(null)}
+                                        className="mt-2 text-xs border-blue-300 text-blue-600 hover:bg-blue-100"
+                                      >
+                                        Reset to Default
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="text-center py-12">
+                              <div className="p-6 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full mb-6 mx-auto w-fit">
+                                <Image className="h-12 w-12 text-gray-400" />
+                              </div>
+                              <h3 className="text-lg font-semibold text-gray-700 mb-2">No Images Available</h3>
+                              <p className="text-gray-500 max-w-md mx-auto">
+                                Generate an email first to see available images from your sessions that you can use as hero images.
+                              </p>
+                            </div>
+                          )}
                         </div>
                       </TabsContent>
                     </Tabs>
