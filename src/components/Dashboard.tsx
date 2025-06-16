@@ -68,7 +68,7 @@ export default function Dashboard({
   const [emailHtml, setEmailHtml] = useState("");
   const [htmlCopied, setHtmlCopied] = useState(false);
   const [rawHtmlCopied, setRawHtmlCopied] = useState(false);
-  const [isUpdatingPreview, setIsUpdatingPreview] = useState(false);
+
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isGeneratorCollapsed, setIsGeneratorCollapsed] = useState(false);
   const [sessions, setSessions] = useState<Array<{
@@ -468,26 +468,48 @@ export default function Dashboard({
   const updatePreview = () => {
     if (!emailHtml && !capturedHtml) return;
     
-    setIsUpdatingPreview(true);
-    
-    // Use a small delay to show the loading state briefly
-    setTimeout(() => {
-      try {
-        // Get the current HTML content
+    // No loading state needed since updates are instant
+    try {
+      // Get the current HTML content
         const currentHtml = emailHtml || capturedHtml;
         
-        // Create a comprehensive style injection
+        // Create a comprehensive style injection with better targeting
         const styleInjection = `
           <style>
+            /* Ensure iframe content fits properly */
+            body {
+              margin: 0 !important;
+              padding: 0 !important;
+              box-sizing: border-box !important;
+              overflow-x: hidden !important;
+            }
+            
             /* Override all heading styles */
             h1, h2, h3, h4, h5, h6, .heading, .title {
               color: ${headingTextColor} !important;
               font-family: '${headingFont}', serif !important;
               font-size: ${headingFontSize}px !important;
+              line-height: 1.2 !important;
+              margin-bottom: 0.5em !important;
             }
             
-            /* Override all paragraph and text styles */
-            p, .text, .content, .description, div, span {
+            /* Override paragraph styles - more targeted */
+            p, .text, .content, .description {
+              color: ${paragraphTextColor} !important;
+              font-family: '${paragraphFont}', serif !important;
+              font-size: ${paragraphFontSize}px !important;
+              line-height: 1.5 !important;
+              margin-bottom: 1em !important;
+            }
+            
+            /* Target text content in divs and spans more carefully */
+            div:not([class*="container"]):not([class*="wrapper"]):not([class*="layout"]) {
+              color: ${paragraphTextColor} !important;
+              font-family: '${paragraphFont}', serif !important;
+              font-size: ${paragraphFontSize}px !important;
+            }
+            
+            span:not([class*="icon"]):not([class*="button"]) {
               color: ${paragraphTextColor} !important;
               font-family: '${paragraphFont}', serif !important;
               font-size: ${paragraphFontSize}px !important;
@@ -511,6 +533,11 @@ export default function Dashboard({
             .btn, .button, button {
               background-color: ${primaryColor} !important;
               border-color: ${primaryColor} !important;
+              color: white !important;
+              padding: 8px 16px !important;
+              border-radius: 4px !important;
+              text-decoration: none !important;
+              display: inline-block !important;
             }
             
             .btn:hover, .button:hover, button:hover {
@@ -525,6 +552,23 @@ export default function Dashboard({
             
             a:hover {
               color: ${secondaryColor} !important;
+            }
+            
+            /* Ensure images and media fit properly */
+            img {
+              max-width: 100% !important;
+              height: auto !important;
+            }
+            
+            /* Prevent layout breaking */
+            * {
+              box-sizing: border-box !important;
+            }
+            
+            /* Ensure containers don't overflow */
+            .container, .wrapper, .content-wrapper {
+              max-width: 100% !important;
+              overflow-x: hidden !important;
             }
           </style>
         `;
@@ -569,12 +613,9 @@ export default function Dashboard({
         
         // Clear the unsaved changes flag
         setHasUnsavedChanges(false);
-      } catch (error) {
-        console.error("Error updating preview:", error);
-      } finally {
-        setIsUpdatingPreview(false);
-      }
-    }, 200); // Reduced delay for faster updates
+    } catch (error) {
+      console.error("Error updating preview:", error);
+    }
   };
 
   // Note: Removed automatic preview updates to improve performance
@@ -1040,25 +1081,15 @@ export default function Dashboard({
                         <div className="flex justify-center">
                           <Button
                             onClick={updatePreview}
-                            disabled={isUpdatingPreview}
                             className={`gap-2 border-0 text-white font-semibold px-8 py-3 shadow-lg transition-all duration-300 ${
                               hasUnsavedChanges 
                                 ? 'sexy-button animate-pulse' 
                                 : 'bg-gradient-to-r from-gray-400 to-gray-500 hover:from-gray-500 hover:to-gray-600'
                             }`}
                           >
-                            {isUpdatingPreview ? (
-                              <>
-                                <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
-                                Updating Preview...
-                              </>
-                            ) : (
-                              <>
-                                <Wand2 className="h-4 w-4" />
-                                Update Preview
-                                {hasUnsavedChanges && <span className="ml-1 text-xs">•</span>}
-                              </>
-                            )}
+                            <Wand2 className="h-4 w-4" />
+                            Update Preview
+                            {hasUnsavedChanges && <span className="ml-1 text-xs">•</span>}
                           </Button>
                         </div>
                       </div>
@@ -1228,12 +1259,7 @@ export default function Dashboard({
         subtitle={`Processing ${urlInputs.filter(input => input.value.trim()).length} session${urlInputs.filter(input => input.value.trim()).length > 1 ? 's' : ''}...`}
       />
 
-      {/* Preview Update Modal */}
-      <LoadingModal 
-        isOpen={isUpdatingPreview}
-        title="Applying Your Style Changes"
-        subtitle="Fast styling update in progress..."
-      />
+
 
     </div>
   );
