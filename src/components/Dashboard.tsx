@@ -243,12 +243,21 @@ export default function Dashboard({
             setEmailHtml(data.emailHtml || "");
             setCapturedHtml(data.emailHtml || "");
             setRawHtml(data.rawHtml || "");
+            // Set first available image as selected hero image
+            const firstImageFromSessions = data.sessions.find((s: any) => s.firstImage)?.firstImage;
+            if (firstImageFromSessions) {
+              setSelectedHeroImage(firstImageFromSessions);
+            }
           } else if (data.sessions.length === 1) {
             // Single session
             const session = data.sessions[0];
             setEmailHtml(session.enhancedEmailHtml || data.emailHtml || "");
             setCapturedHtml(session.enhancedEmailHtml || data.emailHtml || "");
             setRawHtml(session.rawHtmlWithButton || data.rawHtml || "");
+            // Set the session's first image as selected hero image
+            if (session.firstImage) {
+              setSelectedHeroImage(session.firstImage);
+            }
           }
         } else {
           // Legacy single session response
@@ -259,8 +268,12 @@ export default function Dashboard({
             url: validUrls[0],
             title: data.title || "Session",
             html: data.emailHtml || "",
-            firstImage: null
+            firstImage: data.firstImage || null
           }]);
+          // Set the first image as selected hero image for legacy responses
+          if (data.firstImage) {
+            setSelectedHeroImage(data.firstImage);
+          }
         }
         
         setIsGenerated(true);
@@ -712,6 +725,11 @@ export default function Dashboard({
             <p className="text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed">
               Transform your photo sessions into stunning email templates with AI-powered extraction and beautiful customization
             </p>
+            <div className="mt-4 p-4 bg-gradient-to-r from-purple-100 to-pink-100 rounded-2xl border-2 border-purple-200 max-w-2xl mx-auto">
+              <p className="text-lg font-semibold text-purple-800 text-center">
+                🚀 Supercharge and Simplify your UseSession.com Email Marketing!
+              </p>
+            </div>
             <div className="flex items-center justify-center gap-6 mt-6">
               <Badge variant="secondary" className="px-4 py-2 text-sm font-medium bg-gradient-to-r from-purple-100 to-pink-100 text-purple-700 border-0">
                 <Zap className="h-4 w-4 mr-2" />
