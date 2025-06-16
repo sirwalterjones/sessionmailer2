@@ -484,13 +484,21 @@ export default function Dashboard({
               overflow-x: hidden !important;
             }
             
-            /* Override all heading styles */
+            /* Override all heading styles - preserve backgrounds */
             h1, h2, h3, h4, h5, h6, .heading, .title {
               color: ${headingTextColor} !important;
               font-family: '${headingFont}', serif !important;
               font-size: ${headingFontSize}px !important;
               line-height: 1.2 !important;
               margin-bottom: 0.5em !important;
+              /* Preserve existing background colors and gradients */
+            }
+            
+            /* Specifically preserve heading backgrounds */
+            h1[style*="background"], h2[style*="background"], h3[style*="background"], 
+            h4[style*="background"], h5[style*="background"], h6[style*="background"],
+            .heading[style*="background"], .title[style*="background"] {
+              /* Keep original background styles intact */
             }
             
             /* Override paragraph styles - more targeted */
@@ -502,14 +510,14 @@ export default function Dashboard({
               margin-bottom: 1em !important;
             }
             
-            /* Target text content in divs and spans more carefully */
-            div:not([class*="container"]):not([class*="wrapper"]):not([class*="layout"]) {
+            /* Target text content in divs and spans more carefully - exclude headings */
+            div:not([class*="container"]):not([class*="wrapper"]):not([class*="layout"]):not([class*="heading"]):not([class*="title"]) {
               color: ${paragraphTextColor} !important;
               font-family: '${paragraphFont}', serif !important;
               font-size: ${paragraphFontSize}px !important;
             }
             
-            span:not([class*="icon"]):not([class*="button"]) {
+            span:not([class*="icon"]):not([class*="button"]):not([class*="heading"]):not([class*="title"]) {
               color: ${paragraphTextColor} !important;
               font-family: '${paragraphFont}', serif !important;
               font-size: ${paragraphFontSize}px !important;
@@ -588,24 +596,8 @@ export default function Dashboard({
           updatedHtml = styleInjection + updatedHtml;
         }
         
-        // Also update any existing inline styles with regex replacements
-        // Update colors in existing inline styles
-        updatedHtml = updatedHtml.replace(
-          /(style="[^"]*color:\s*)[^;"]+(;?[^"]*")/gi,
-          `$1${headingTextColor}$2`
-        );
-        
-        // Update font families in existing inline styles
-        updatedHtml = updatedHtml.replace(
-          /(style="[^"]*font-family:\s*)[^;"]+(;?[^"]*")/gi,
-          `$1'${headingFont}', serif$2`
-        );
-        
-        // Update background colors
-        updatedHtml = updatedHtml.replace(
-          /(style="[^"]*background-color:\s*)[^;"]+(;?[^"]*")/gi,
-          `$1${primaryColor}$2`
-        );
+        // Note: Removed problematic regex replacements that were affecting heading backgrounds
+        // The CSS injection above with !important declarations should handle all styling
         
         // Update the preview
         setEmailHtml(updatedHtml);
