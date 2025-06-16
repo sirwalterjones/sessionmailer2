@@ -39,6 +39,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import EmailPreview from "@/components/EmailPreview";
 import SaveProjectDialog from "@/components/SaveProjectDialog";
 import SavedProjects from "@/components/SavedProjects";
+import LoadingModal from "@/components/LoadingModal";
 import { SavedProject, ProjectCustomization } from "@/lib/supabase";
 
 interface DashboardProps {
@@ -950,11 +951,8 @@ export default function Dashboard({
                           <Eye className="h-6 w-6 text-white" />
                         </div>
                         <div>
-                          <CardTitle className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+                          <CardTitle className="text-2xl font-bold text-gray-800">
                             Email Preview
-                            {isUpdatingPreview && (
-                              <div className="animate-spin h-5 w-5 border-2 border-purple-500 border-t-transparent rounded-full"></div>
-                            )}
                           </CardTitle>
                           <CardDescription className="text-gray-600 mt-1">
                             See how your email looks to recipients • Updates automatically
@@ -972,15 +970,6 @@ export default function Dashboard({
                   </CardHeader>
                   <CardContent className="p-0 overflow-hidden">
                     <div className="border-2 border-gray-200 rounded-2xl h-[600px] overflow-auto relative bg-white shadow-inner">
-                      {/* Loading overlay */}
-                      {isUpdatingPreview && (
-                        <div className="absolute inset-0 bg-white/90 backdrop-blur-sm z-10 flex items-center justify-center">
-                          <div className="flex flex-col items-center gap-4">
-                            <div className="animate-spin h-12 w-12 border-4 border-purple-500 border-t-transparent rounded-full"></div>
-                            <p className="text-lg font-medium text-gray-700">Updating preview...</p>
-                          </div>
-                        </div>
-                      )}
                       
                       {isGenerated && (emailHtml || capturedHtml) ? (
                         <div className="h-full">
@@ -1099,13 +1088,27 @@ export default function Dashboard({
         </div>
       </div>
 
-      {/* Save Project Dialog */}
-      <SaveProjectDialog
+            {/* Save Project Dialog */}
+      <SaveProjectDialog 
         isOpen={showSaveDialog}
         onClose={() => setShowSaveDialog(false)}
         onSave={handleSaveProjectConfirm}
         isLoading={isSaving}
         error={saveError}
+      />
+
+      {/* Loading Modal */}
+      <LoadingModal 
+        isOpen={isGenerating}
+        title="Generating Your Beautiful Email"
+        subtitle={`Processing ${urlInputs.filter(input => input.value.trim()).length} session${urlInputs.filter(input => input.value.trim()).length > 1 ? 's' : ''}...`}
+      />
+
+      {/* Preview Update Modal */}
+      <LoadingModal 
+        isOpen={isUpdatingPreview}
+        title="Updating Your Preview"
+        subtitle="Applying your beautiful customizations..."
       />
     </div>
   );
