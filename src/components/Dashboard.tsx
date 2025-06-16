@@ -68,7 +68,7 @@ export default function Dashboard({
   const [emailHtml, setEmailHtml] = useState("");
   const [htmlCopied, setHtmlCopied] = useState(false);
   const [rawHtmlCopied, setRawHtmlCopied] = useState(false);
-  const [isUpdatingPreview, setIsUpdatingPreview] = useState(false);
+
   const [isGeneratorCollapsed, setIsGeneratorCollapsed] = useState(false);
   const [sessions, setSessions] = useState<Array<{
     url: string;
@@ -422,82 +422,12 @@ export default function Dashboard({
     }
   };
 
-  const updatePreview = async () => {
-    if (!sessions.length) return;
-    
-    setIsUpdatingPreview(true);
-    
-    try {
-      // Get the URLs from sessions
-      const urls = sessions.map(session => session.url);
-      
-      const requestBody = urls.length === 1 
-        ? { 
-            url: urls[0],
-            primaryColor,
-            secondaryColor,
-            headingFont,
-            paragraphFont,
-            headingFontSize,
-            paragraphFontSize,
-            headingTextColor,
-            paragraphTextColor
-          }
-        : { 
-            urls,
-            primaryColor,
-            secondaryColor,
-            headingFont,
-            paragraphFont,
-            headingFontSize,
-            paragraphFontSize,
-            headingTextColor,
-            paragraphTextColor
-          };
+  // Note: updatePreview function removed since we no longer do automatic updates
+  // The initial generation includes all customization parameters
 
-      const response = await fetch("/api/enhanced-extract", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(requestBody),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success && data.sessions && Array.isArray(data.sessions)) {
-          if (data.sessions.length > 1) {
-            // Multiple sessions response
-            setEmailHtml(data.emailHtml || "");
-            setCapturedHtml(data.emailHtml || "");
-            setRawHtml(data.rawHtml || "");
-          } else if (data.sessions.length === 1) {
-            // Single session response
-            const session = data.sessions[0];
-            setEmailHtml(session.enhancedEmailHtml || data.emailHtml || "");
-            setCapturedHtml(session.enhancedEmailHtml || data.emailHtml || "");
-            setRawHtml(session.rawHtmlWithButton || data.rawHtml || "");
-          }
-        }
-      }
-    } catch (error) {
-      console.error("Error updating preview:", error);
-    } finally {
-      setIsUpdatingPreview(false);
-    }
-  };
-
-  // Real-time preview updates when colors or fonts change (only after initial generation)
-  useEffect(() => {
-    // Only update preview if email has been generated and we have sessions data
-    if (!isGenerated || !sessions.length) return;
-    
-    const timeoutId = setTimeout(() => {
-      updatePreview();
-    }, 500); // Debounce updates by 500ms
-
-    return () => clearTimeout(timeoutId);
-  }, [primaryColor, secondaryColor, headingFont, paragraphFont, headingFontSize, paragraphFontSize, headingTextColor, paragraphTextColor, isGenerated, sessions]);
+  // Note: Removed automatic preview updates to improve performance
+  // The initial generation includes all customization parameters
+  // Users can manually regenerate if they want to see changes
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
@@ -1104,12 +1034,7 @@ export default function Dashboard({
         subtitle={`Processing ${urlInputs.filter(input => input.value.trim()).length} session${urlInputs.filter(input => input.value.trim()).length > 1 ? 's' : ''}...`}
       />
 
-      {/* Preview Update Modal */}
-      <LoadingModal 
-        isOpen={isUpdatingPreview}
-        title="Updating Your Preview"
-        subtitle="Applying your beautiful customizations..."
-      />
+
     </div>
   );
 }
