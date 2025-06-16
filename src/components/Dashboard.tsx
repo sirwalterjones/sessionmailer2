@@ -26,10 +26,15 @@ import {
   Minus,
   ChevronDown,
   ChevronUp,
+  Zap,
+  Palette,
+  Type,
+  Eye,
+  Mail,
+  Link,
+  Wand2,
 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-
-
 
 import EmailPreview from "@/components/EmailPreview";
 
@@ -209,51 +214,44 @@ export default function Dashboard({
         throw new Error("Please enter at least one valid URL");
       }
 
-      // Determine if we're processing single or multiple URLs
+      // Use single URL or multiple URLs based on count
       const urlInput = validUrls.length === 1 ? validUrls[0] : validUrls;
       
       const data = await extractSessionData(urlInput);
 
-      if (data.error || !data.success) {
-        throw new Error(data.error || "Failed to extract session data");
-      }
-
-      // Handle the response data based on the API structure
-      if (data.sessions && Array.isArray(data.sessions)) {
-        setSessions(data.sessions);
-        
-        if (data.sessions.length > 1) {
-          // Multiple sessions response
+      if (data.success) {
+        if (data.sessions && Array.isArray(data.sessions)) {
+          setSessions(data.sessions);
+          
+          if (data.sessions.length > 1) {
+            // Multiple sessions
+            setEmailHtml(data.emailHtml || "");
+            setCapturedHtml(data.emailHtml || "");
+            setRawHtml(data.rawHtml || "");
+          } else if (data.sessions.length === 1) {
+            // Single session
+            const session = data.sessions[0];
+            setEmailHtml(session.enhancedEmailHtml || data.emailHtml || "");
+            setCapturedHtml(session.enhancedEmailHtml || data.emailHtml || "");
+            setRawHtml(session.rawHtmlWithButton || data.rawHtml || "");
+          }
+        } else {
+          // Legacy single session response
           setEmailHtml(data.emailHtml || "");
           setCapturedHtml(data.emailHtml || "");
           setRawHtml(data.rawHtml || "");
-        } else if (data.sessions.length === 1) {
-          // Single session response
-          const session = data.sessions[0];
-          setEmailHtml(session.enhancedEmailHtml || data.emailHtml || "");
-          setCapturedHtml(session.enhancedEmailHtml || data.emailHtml || "");
-          setRawHtml(session.rawHtmlWithButton || data.rawHtml || "");
-          
-          // Update session data for preview
-          setSessionData({
-            title: session.title || "Session Title",
-            coverImage: session.firstImage || sessionData.coverImage,
-            description: session.description || "Session description",
-            date: session.date || "Date TBD",
-            time: Array.isArray(session.timeSlots) 
-              ? session.timeSlots.map((slot: any) => typeof slot === 'object' ? slot.time : slot).join(", ") 
-              : "Time TBD",
-            location: session.location || "Location TBD",
-            ctaUrl: session.url || "#",
-          });
+          setSessions([{
+            url: validUrls[0],
+            title: data.title || "Session",
+            html: data.emailHtml || "",
+            firstImage: null
+          }]);
         }
+        
+        setIsGenerated(true);
       } else {
-        // Fallback for unexpected response structure
-        throw new Error("Invalid response structure from server");
+        throw new Error(data.error || "Failed to extract session data");
       }
-
-      setIsGenerated(true);
-      setIsGeneratorCollapsed(true); // Auto-minimize the generator when email is generated
     } catch (error) {
       console.error("Error:", error);
       setError(error instanceof Error ? error.message : "An error occurred");
@@ -263,138 +261,77 @@ export default function Dashboard({
   };
 
   const generateEmailHtml = () => {
-    return `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${sessionData.title}</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f5f5f5; }
-        .container { max-width: 600px; margin: 0 auto; background-color: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        .header { padding: 30px; text-align: center; }
-        .title { font-size: 28px; font-weight: bold; color: #333; margin-bottom: 20px; }
-        .image { width: 100%; height: auto; display: block; }
-        .content { padding: 30px; }
-        .description { font-size: 16px; line-height: 1.6; color: #666; margin-bottom: 25px; }
-        .details { background-color: #f8f9fa; padding: 20px; border-radius: 6px; margin-bottom: 25px; }
-        .detail-row { display: flex; justify-content: space-between; margin-bottom: 10px; }
-        .detail-label { font-weight: bold; color: #333; }
-        .detail-value { color: #666; }
-        .cta { text-align: center; }
-        .cta-button { display: inline-block; background-color: #007bff; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold; }
-        .cta-button:hover { background-color: #0056b3; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1 class="title">${sessionData.title}</h1>
-        </div>
-        
-        <img src="${sessionData.coverImage}" alt="${sessionData.title}" class="image">
-        
-        <div class="content">
-            <p class="description">${sessionData.description}</p>
-            
-            <div class="details">
-                <div class="detail-row">
-                    <span class="detail-label">Date:</span>
-                    <span class="detail-value">${sessionData.date}</span>
-                </div>
-                <div class="detail-row">
-                    <span class="detail-label">Time:</span>
-                    <span class="detail-value">${sessionData.time}</span>
-                </div>
-                <div class="detail-row">
-                    <span class="detail-label">Location:</span>
-                    <span class="detail-value">${sessionData.location}</span>
-                </div>
-            </div>
-            
-            <div class="cta">
-                <a href="${sessionData.ctaUrl}" class="cta-button">Book Now</a>
-            </div>
-        </div>
-    </div>
-</body>
-</html>`;
+    // This function is kept for compatibility but the actual HTML generation
+    // now happens in the API endpoints with proper styling
+    return emailHtml || capturedHtml;
   };
 
   const handleCopyHtml = async () => {
     try {
-      const htmlContent = emailHtml || generateEmailHtml();
-      await navigator.clipboard.writeText(htmlContent);
+      const htmlToCopy = emailHtml || capturedHtml;
+      if (!htmlToCopy) {
+        setError("No HTML content to copy");
+        return;
+      }
+      
+      await navigator.clipboard.writeText(htmlToCopy);
       setHtmlCopied(true);
       setTimeout(() => setHtmlCopied(false), 2000);
-      console.log("HTML copied to clipboard successfully");
     } catch (error) {
-      console.error("Failed to copy HTML to clipboard:", error);
-      // Fallback: create a temporary textarea element
-      const textArea = document.createElement("textarea");
-      textArea.value = emailHtml || generateEmailHtml();
-      document.body.appendChild(textArea);
-      textArea.select();
-      document.execCommand("copy");
-      document.body.removeChild(textArea);
-      setHtmlCopied(true);
-      setTimeout(() => setHtmlCopied(false), 2000);
+      console.error("Failed to copy HTML:", error);
+      setError("Failed to copy HTML to clipboard");
     }
   };
 
   const handleCopyRawHtml = async () => {
     try {
+      if (!rawHtml) {
+        setError("No raw HTML content to copy");
+        return;
+      }
+      
       await navigator.clipboard.writeText(rawHtml);
       setRawHtmlCopied(true);
       setTimeout(() => setRawHtmlCopied(false), 2000);
-      console.log("Raw HTML copied to clipboard successfully");
     } catch (error) {
-      console.error("Failed to copy raw HTML to clipboard:", error);
-      const textArea = document.createElement("textarea");
-      textArea.value = rawHtml;
-      document.body.appendChild(textArea);
-      textArea.select();
-      document.execCommand("copy");
-      document.body.removeChild(textArea);
-      setRawHtmlCopied(true);
-      setTimeout(() => setRawHtmlCopied(false), 2000);
+      console.error("Failed to copy raw HTML:", error);
+      setError("Failed to copy raw HTML to clipboard");
     }
   };
 
   const handleSaveProject = () => {
-    // In a real implementation, this would save the project to the user's account
-    console.log('Save project functionality would be implemented here');
+    // Placeholder for save functionality
+    console.log("Save project functionality would go here");
   };
 
-  // Real-time preview update function
   const updatePreview = async () => {
-    if (!isGenerated || !sessions.length) return;
+    if (!sessions.length) return;
     
     setIsUpdatingPreview(true);
+    
     try {
-      // Get the original URLs from sessions
-      const urlsToRegenerate = sessions.map(session => session.url);
+      // Get the URLs from sessions
+      const urls = sessions.map(session => session.url);
       
-      const requestBody = urlsToRegenerate.length > 1
+      const requestBody = urls.length === 1 
         ? { 
-            urls: urlsToRegenerate, 
-            primaryColor, 
-            secondaryColor, 
-            headingFont, 
-            paragraphFont, 
-            headingFontSize, 
+            url: urls[0],
+            primaryColor,
+            secondaryColor,
+            headingFont,
+            paragraphFont,
+            headingFontSize,
             paragraphFontSize,
             headingTextColor,
             paragraphTextColor
           }
         : { 
-            url: urlsToRegenerate[0], 
-            primaryColor, 
-            secondaryColor, 
-            headingFont, 
-            paragraphFont, 
-            headingFontSize, 
+            urls,
+            primaryColor,
+            secondaryColor,
+            headingFont,
+            paragraphFont,
+            headingFontSize,
             paragraphFontSize,
             headingTextColor,
             paragraphTextColor
@@ -445,514 +382,596 @@ export default function Dashboard({
   }, [primaryColor, secondaryColor, headingFont, paragraphFont, headingFontSize, paragraphFontSize, headingTextColor, paragraphTextColor, isGenerated, sessions]);
 
   return (
-    <div className="w-full p-4 md:p-8">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex flex-col md:flex-row justify-between items-start mb-8">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Email Generator</h1>
-            <p className="text-muted-foreground mt-1">
-              Transform your photo sessions into beautiful email templates
-            </p>
-          </div>
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
+      {/* Animated background elements */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-purple-400 to-pink-400 rounded-full mix-blend-multiply filter blur-xl opacity-20 floating-animation"></div>
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-blue-400 to-indigo-400 rounded-full mix-blend-multiply filter blur-xl opacity-20 floating-animation" style={{animationDelay: '2s'}}></div>
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-gradient-to-br from-green-400 to-blue-400 rounded-full mix-blend-multiply filter blur-xl opacity-20 floating-animation" style={{animationDelay: '4s'}}></div>
+      </div>
 
-          <div className="mt-4 md:mt-0">
-            {/* Premium badge removed - no premium version */}
-          </div>
-        </div>
-
-        <div className="space-y-8">
-          {/* URL Generator Section - Always at top, collapsible when preview loads */}
-          <Card className="bg-background">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>URL to Email Generator</CardTitle>
-                  <CardDescription>
-                    Enter your usesession.com URLs below to generate an email template. 
-                    Add multiple URLs to create a combined email.
-                  </CardDescription>
-                </div>
-                {isGenerated && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setIsGeneratorCollapsed(!isGeneratorCollapsed)}
-                    className="gap-2"
-                  >
-                    {isGeneratorCollapsed ? "Expand" : "Minimize"}
-                    {isGeneratorCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
-                  </Button>
-                )}
+      <div className="relative z-10 w-full p-4 md:p-8">
+        <div className="max-w-7xl mx-auto">
+          {/* Hero Header */}
+          <div className="text-center mb-12">
+            <div className="inline-flex items-center gap-3 mb-6">
+              <div className="p-3 bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl shadow-lg pulse-glow">
+                <Mail className="h-8 w-8 text-white" />
               </div>
-            </CardHeader>
-            {(!isGenerated || !isGeneratorCollapsed) && (
-              <CardContent>
-                <form onSubmit={handleUrlSubmit}>
-                  <div className="grid gap-4">
-                    <div className="space-y-3">
-                      {urlInputs.map((input, index) => (
-                        <div key={input.id} className="flex gap-2">
-                          <Input
-                            placeholder="https://book.usesession.com/s/..."
-                            value={input.value}
-                            onChange={(e) => updateUrlInput(input.id, e.target.value)}
-                            className="flex-1"
-                          />
-                          {urlInputs.length > 1 && (
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => removeUrlInput(input.id)}
-                              className="px-3"
-                            >
-                              <Minus className="h-4 w-4" />
-                            </Button>
+              <h1 className="text-5xl font-bold bg-gradient-to-r from-purple-600 via-pink-600 to-blue-600 bg-clip-text text-transparent">
+                SessionMailer
+              </h1>
+            </div>
+            <p className="text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed">
+              Transform your photo sessions into stunning email templates with AI-powered extraction and beautiful customization
+            </p>
+            <div className="flex items-center justify-center gap-6 mt-6">
+              <Badge variant="secondary" className="px-4 py-2 text-sm font-medium bg-gradient-to-r from-purple-100 to-pink-100 text-purple-700 border-0">
+                <Zap className="h-4 w-4 mr-2" />
+                AI-Powered
+              </Badge>
+              <Badge variant="secondary" className="px-4 py-2 text-sm font-medium bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-700 border-0">
+                <Wand2 className="h-4 w-4 mr-2" />
+                Instant Generation
+              </Badge>
+            </div>
+          </div>
+
+          <div className="space-y-8">
+            {/* URL Generator Section */}
+            <Card className="glass-card border-0 shadow-2xl card-hover">
+              <CardHeader className="pb-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="p-2 bg-gradient-to-br from-blue-500 to-purple-500 rounded-xl">
+                      <Link className="h-6 w-6 text-white" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-2xl font-bold text-gray-800">URL to Email Generator</CardTitle>
+                      <CardDescription className="text-gray-600 mt-1">
+                        Enter your usesession.com URLs below to generate stunning email templates
+                      </CardDescription>
+                    </div>
+                  </div>
+                  {isGenerated && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setIsGeneratorCollapsed(!isGeneratorCollapsed)}
+                      className="gap-2 hover:bg-white/50 transition-all duration-300"
+                    >
+                      {isGeneratorCollapsed ? "Expand" : "Minimize"}
+                      {isGeneratorCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+                    </Button>
+                  )}
+                </div>
+              </CardHeader>
+              {(!isGenerated || !isGeneratorCollapsed) && (
+                <CardContent className="pt-0">
+                  <form onSubmit={handleUrlSubmit}>
+                    <div className="grid gap-6">
+                      <div className="space-y-4">
+                        {urlInputs.map((input, index) => (
+                          <div key={input.id} className="flex gap-3">
+                            <div className="relative flex-1">
+                              <Input
+                                placeholder="https://book.usesession.com/s/..."
+                                value={input.value}
+                                onChange={(e) => updateUrlInput(input.id, e.target.value)}
+                                className="pl-12 h-12 border-2 border-gray-200 focus:border-purple-400 transition-all duration-300 bg-white/70 backdrop-blur-sm"
+                              />
+                              <Link className="absolute left-4 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                            </div>
+                            {urlInputs.length > 1 && (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => removeUrlInput(input.id)}
+                                className="h-12 px-4 border-2 border-red-200 hover:border-red-400 hover:bg-red-50 transition-all duration-300"
+                              >
+                                <Minus className="h-4 w-4 text-red-500" />
+                              </Button>
+                            )}
+                          </div>
+                        ))}
+                        
+                        <div className="flex justify-between items-center pt-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={addUrlInput}
+                            className="gap-2 border-2 border-green-200 hover:border-green-400 hover:bg-green-50 transition-all duration-300"
+                          >
+                            <Plus className="h-4 w-4 text-green-500" />
+                            Add URL
+                          </Button>
+                          <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 bg-gradient-to-r from-purple-400 to-pink-400 rounded-full"></div>
+                            <p className="text-sm text-gray-600 font-medium">
+                              {urlInputs.length === 1 ? "Single session email" : `Combined email with ${urlInputs.length} sessions`}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <Button
+                        type="submit"
+                        disabled={isGenerating || urlInputs.every(input => !input.value.trim())}
+                        className="w-full h-14 text-lg font-semibold sexy-button border-0 text-white relative overflow-hidden"
+                      >
+                        <div className="flex items-center justify-center gap-3">
+                          {isGenerating ? (
+                            <>
+                              <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></div>
+                              Generating Magic...
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles className="h-5 w-5" />
+                              Generate Beautiful Email
+                            </>
                           )}
                         </div>
-                      ))}
-                      
-                      <div className="flex justify-between items-center">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={addUrlInput}
-                          className="gap-1"
-                        >
-                          <Plus className="h-4 w-4" />
-                          Add URL
-                        </Button>
-                        <p className="text-sm text-muted-foreground">
-                          {urlInputs.length === 1 ? "Single session email" : `Combined email with ${urlInputs.length} sessions`}
-                        </p>
-                      </div>
-                    </div>
-                    
-                    <Button
-                      type="submit"
-                      disabled={isGenerating || urlInputs.every(input => !input.value.trim())}
-                      className="w-full"
-                    >
-                      {isGenerating ? "Capturing HTML..." : "Capture & Generate"}
-                    </Button>
-                  </div>
-                </form>
-
-                {error && (
-                  <Alert className="mt-4">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>{error}</AlertDescription>
-                  </Alert>
-                )}
-
-                {isGenerated && (
-                  <div className="mt-6">
-                    <Separator className="my-4" />
-                    <h3 className="text-lg font-medium mb-4">
-                      Email Generated!
-                    </h3>
-                    <div className="flex justify-center">
-                      <Button
-                        variant="outline"
-                        className="gap-2"
-                        onClick={handleSaveProject}
-                      >
-                        <Save className="h-4 w-4" />
-                        Save Project
                       </Button>
                     </div>
-                  </div>
-                )}
-              </CardContent>
-            )}
-          </Card>
+                  </form>
 
-          {/* Customization and Preview Section - Side by side when preview loads */}
-          {isGenerated ? (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              {/* Customization Options - Left side */}
-              <Card className="bg-background">
+                  {error && (
+                    <Alert className="mt-6 border-red-200 bg-red-50">
+                      <AlertCircle className="h-4 w-4 text-red-500" />
+                      <AlertDescription className="text-red-700">{error}</AlertDescription>
+                    </Alert>
+                  )}
+
+                  {isGenerated && (
+                    <div className="mt-8 p-6 bg-gradient-to-r from-green-50 to-emerald-50 rounded-2xl border border-green-200">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="p-2 bg-green-500 rounded-full">
+                          <Sparkles className="h-4 w-4 text-white" />
+                        </div>
+                        <h3 className="text-xl font-bold text-green-800">
+                          Email Generated Successfully! ✨
+                        </h3>
+                      </div>
+                      <p className="text-green-700 mb-4">Your beautiful email template is ready. Customize colors and fonts below, then copy the HTML.</p>
+                      <div className="flex justify-center">
+                        <Button
+                          variant="outline"
+                          className="gap-2 border-green-300 hover:bg-green-100 transition-all duration-300"
+                          onClick={handleSaveProject}
+                        >
+                          <Save className="h-4 w-4" />
+                          Save Project
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              )}
+            </Card>
+
+            {/* Customization and Preview Section */}
+            {isGenerated ? (
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+                {/* Customization Panel */}
+                <Card className="glass-card border-0 shadow-2xl card-hover">
+                  <CardHeader className="pb-6">
+                    <div className="flex items-center gap-4">
+                      <div className="p-2 bg-gradient-to-br from-pink-500 to-purple-500 rounded-xl">
+                        <Palette className="h-6 w-6 text-white" />
+                      </div>
+                      <div>
+                        <CardTitle className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+                          Customize Your Email
+                        </CardTitle>
+                        <CardDescription className="text-gray-600 mt-1">
+                          Make it uniquely yours with colors and typography
+                        </CardDescription>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <Tabs defaultValue="colors" className="w-full">
+                      <TabsList className="grid w-full grid-cols-2 bg-white/50 backdrop-blur-sm">
+                        <TabsTrigger value="colors" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-md">
+                          <Palette className="h-4 w-4" />
+                          Colors
+                        </TabsTrigger>
+                        <TabsTrigger value="typography" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-md">
+                          <Type className="h-4 w-4" />
+                          Typography
+                        </TabsTrigger>
+                      </TabsList>
+
+                      <TabsContent value="colors" className="space-y-8 mt-8">
+                        {/* Color customization content */}
+                        <div className="grid gap-6">
+                          <div className="flex items-center gap-3 mb-4">
+                            <div className="w-3 h-3 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full"></div>
+                            <span className="text-lg font-semibold text-gray-800">Brand Colors</span>
+                          </div>
+                          
+                          <div className="grid grid-cols-2 gap-6">
+                            <div className="space-y-3">
+                              <label className="text-sm font-medium text-gray-700">Primary Color</label>
+                              <div className="flex gap-3">
+                                <input
+                                  type="color"
+                                  value={primaryColor}
+                                  onChange={(e) => setPrimaryColor(e.target.value)}
+                                  className="w-12 h-12 rounded-xl border-2 border-gray-200 cursor-pointer shadow-md"
+                                />
+                                <Input
+                                  value={primaryColor}
+                                  onChange={(e) => setPrimaryColor(e.target.value)}
+                                  className="flex-1 font-mono text-sm bg-white/70"
+                                />
+                              </div>
+                            </div>
+                            <div className="space-y-3">
+                              <label className="text-sm font-medium text-gray-700">Secondary Color</label>
+                              <div className="flex gap-3">
+                                <input
+                                  type="color"
+                                  value={secondaryColor}
+                                  onChange={(e) => setSecondaryColor(e.target.value)}
+                                  className="w-12 h-12 rounded-xl border-2 border-gray-200 cursor-pointer shadow-md"
+                                />
+                                <Input
+                                  value={secondaryColor}
+                                  onChange={(e) => setSecondaryColor(e.target.value)}
+                                  className="flex-1 font-mono text-sm bg-white/70"
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-6">
+                            <div className="space-y-3">
+                              <label className="text-sm font-medium text-gray-700">Heading Text</label>
+                              <div className="flex gap-3">
+                                <input
+                                  type="color"
+                                  value={headingTextColor}
+                                  onChange={(e) => setHeadingTextColor(e.target.value)}
+                                  className="w-12 h-12 rounded-xl border-2 border-gray-200 cursor-pointer shadow-md"
+                                />
+                                <Input
+                                  value={headingTextColor}
+                                  onChange={(e) => setHeadingTextColor(e.target.value)}
+                                  className="flex-1 font-mono text-sm bg-white/70"
+                                />
+                              </div>
+                            </div>
+                            <div className="space-y-3">
+                              <label className="text-sm font-medium text-gray-700">Paragraph Text</label>
+                              <div className="flex gap-3">
+                                <input
+                                  type="color"
+                                  value={paragraphTextColor}
+                                  onChange={(e) => setParagraphTextColor(e.target.value)}
+                                  className="w-12 h-12 rounded-xl border-2 border-gray-200 cursor-pointer shadow-md"
+                                />
+                                <Input
+                                  value={paragraphTextColor}
+                                  onChange={(e) => setParagraphTextColor(e.target.value)}
+                                  className="flex-1 font-mono text-sm bg-white/70"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                          
+                          {/* Color Preview */}
+                          <div className="p-6 bg-white rounded-2xl border-2 border-gray-100 shadow-inner">
+                            <div className="flex items-center gap-2 mb-4">
+                              <Eye className="h-4 w-4 text-gray-500" />
+                              <span className="text-sm font-medium text-gray-700">Color Preview</span>
+                            </div>
+                            <div className="space-y-4">
+                              <div 
+                                className="h-16 rounded-xl shadow-md flex items-center justify-center text-white font-semibold"
+                                style={{ backgroundColor: primaryColor }}
+                              >
+                                Primary Color
+                              </div>
+                              <div 
+                                className="h-12 rounded-xl shadow-md flex items-center justify-center text-white font-medium"
+                                style={{ backgroundColor: secondaryColor }}
+                              >
+                                Secondary Color
+                              </div>
+                              <div className="space-y-2">
+                                <h3 
+                                  className="text-xl font-bold"
+                                  style={{ color: headingTextColor }}
+                                >
+                                  Sample Heading Text
+                                </h3>
+                                <p 
+                                  className="text-sm"
+                                  style={{ color: paragraphTextColor }}
+                                >
+                                  This is how your paragraph text will appear in the email template.
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </TabsContent>
+
+                      <TabsContent value="typography" className="space-y-8 mt-8">
+                        {/* Typography customization content */}
+                        <div className="grid gap-6">
+                          <div className="flex items-center gap-3 mb-4">
+                            <div className="w-3 h-3 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full"></div>
+                            <span className="text-lg font-semibold text-gray-800">Typography</span>
+                          </div>
+                          
+                          <div className="grid grid-cols-2 gap-6">
+                            <div className="space-y-3">
+                              <label className="text-sm font-medium text-gray-700">Heading Font</label>
+                              <select
+                                value={headingFont}
+                                onChange={(e) => setHeadingFont(e.target.value)}
+                                className="w-full p-3 border-2 border-gray-200 rounded-xl bg-white/70 focus:border-blue-400 transition-all duration-300"
+                              >
+                                {googleFonts.map(font => (
+                                  <option key={font} value={font}>{font}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div className="space-y-3">
+                              <label className="text-sm font-medium text-gray-700">Paragraph Font</label>
+                              <select
+                                value={paragraphFont}
+                                onChange={(e) => setParagraphFont(e.target.value)}
+                                className="w-full p-3 border-2 border-gray-200 rounded-xl bg-white/70 focus:border-blue-400 transition-all duration-300"
+                              >
+                                {googleFonts.map(font => (
+                                  <option key={font} value={font}>{font}</option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-6">
+                            <div className="space-y-3">
+                              <label className="text-sm font-medium text-gray-700">Heading Size</label>
+                              <div className="flex items-center gap-3">
+                                <input
+                                  type="range"
+                                  min="20"
+                                  max="48"
+                                  value={headingFontSize}
+                                  onChange={(e) => setHeadingFontSize(Number(e.target.value))}
+                                  className="flex-1 h-2 bg-gradient-to-r from-blue-200 to-purple-200 rounded-lg appearance-none cursor-pointer"
+                                />
+                                <div className="flex items-center gap-1 bg-white/70 rounded-lg px-3 py-1 border">
+                                  <Input
+                                    type="number"
+                                    min="20"
+                                    max="48"
+                                    value={headingFontSize}
+                                    onChange={(e) => setHeadingFontSize(Number(e.target.value))}
+                                    className="w-16 text-xs text-center border-0 bg-transparent p-0"
+                                  />
+                                  <span className="text-xs text-gray-500">px</span>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="space-y-3">
+                              <label className="text-sm font-medium text-gray-700">Paragraph Size</label>
+                              <div className="flex items-center gap-3">
+                                <input
+                                  type="range"
+                                  min="12"
+                                  max="24"
+                                  value={paragraphFontSize}
+                                  onChange={(e) => setParagraphFontSize(Number(e.target.value))}
+                                  className="flex-1 h-2 bg-gradient-to-r from-green-200 to-blue-200 rounded-lg appearance-none cursor-pointer"
+                                />
+                                <div className="flex items-center gap-1 bg-white/70 rounded-lg px-3 py-1 border">
+                                  <Input
+                                    type="number"
+                                    min="12"
+                                    max="24"
+                                    value={paragraphFontSize}
+                                    onChange={(e) => setParagraphFontSize(Number(e.target.value))}
+                                    className="w-16 text-xs text-center border-0 bg-transparent p-0"
+                                  />
+                                  <span className="text-xs text-gray-500">px</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          {/* Typography Preview */}
+                          <div className="p-6 bg-white rounded-2xl border-2 border-gray-100 shadow-inner">
+                            <div className="flex items-center gap-2 mb-4">
+                              <Type className="h-4 w-4 text-gray-500" />
+                              <span className="text-sm font-medium text-gray-700">Typography Preview</span>
+                            </div>
+                            <div className="space-y-4">
+                              <div 
+                                className="font-bold"
+                                style={{ 
+                                  fontFamily: headingFont,
+                                  fontSize: `${headingFontSize}px`,
+                                  color: headingTextColor,
+                                  lineHeight: '1.2'
+                                }}
+                              >
+                                Beautiful Session Heading
+                              </div>
+                              <p 
+                                style={{ 
+                                  fontFamily: paragraphFont,
+                                  fontSize: `${paragraphFontSize}px`,
+                                  color: paragraphTextColor,
+                                  lineHeight: '1.6'
+                                }}
+                              >
+                                This is how your paragraph text will appear in the email template. The font family, size, and color are all customizable to match your brand perfectly.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </TabsContent>
+                    </Tabs>
+                  </CardContent>
+                </Card>
+
+                {/* Email Preview Panel */}
+                <Card className="glass-card border-0 shadow-2xl card-hover">
+                  <CardHeader className="pb-6">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="p-2 bg-gradient-to-br from-green-500 to-blue-500 rounded-xl">
+                          <Eye className="h-6 w-6 text-white" />
+                        </div>
+                        <div>
+                          <CardTitle className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+                            Email Preview
+                            {isUpdatingPreview && (
+                              <div className="animate-spin h-5 w-5 border-2 border-purple-500 border-t-transparent rounded-full"></div>
+                            )}
+                          </CardTitle>
+                          <CardDescription className="text-gray-600 mt-1">
+                            See how your email looks to recipients • Updates automatically
+                          </CardDescription>
+                        </div>
+                      </div>
+                      <Button
+                        onClick={handleCopyHtml}
+                        className="gap-2 sexy-button border-0 text-white font-semibold px-6 py-3 shadow-lg"
+                      >
+                        <Copy className="h-4 w-4" />
+                        {htmlCopied ? "✅ Copied!" : "Copy HTML"}
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-0 overflow-hidden">
+                    <div className="border-2 border-gray-200 rounded-2xl h-[600px] overflow-auto relative bg-white shadow-inner">
+                      {/* Loading overlay */}
+                      {isUpdatingPreview && (
+                        <div className="absolute inset-0 bg-white/90 backdrop-blur-sm z-10 flex items-center justify-center">
+                          <div className="flex flex-col items-center gap-4">
+                            <div className="animate-spin h-12 w-12 border-4 border-purple-500 border-t-transparent rounded-full"></div>
+                            <p className="text-lg font-medium text-gray-700">Updating preview...</p>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {isGenerated && (emailHtml || capturedHtml) ? (
+                        <div className="h-full">
+                          <iframe
+                            srcDoc={emailHtml || capturedHtml}
+                            className="w-full h-full border-0"
+                            title="Email Preview"
+                            sandbox="allow-same-origin allow-scripts"
+                          />
+                        </div>
+                      ) : isGenerated ? (
+                        <EmailPreview
+                          sessionData={{
+                            title: sessionData.title,
+                            coverImage: sessionData.coverImage,
+                            description: sessionData.description,
+                            date: sessionData.date,
+                            time: sessionData.time,
+                            location: sessionData.location,
+                            price: "$350"
+                          }}
+                        />
+                      ) : (
+                        <div className="flex flex-col items-center justify-center h-full p-8 text-center">
+                          <div className="p-6 bg-gradient-to-br from-purple-100 to-pink-100 rounded-full mb-8 floating-animation">
+                            <Mail className="h-20 w-20 text-purple-600" />
+                          </div>
+                          <h3 className="text-2xl font-bold text-gray-800 mb-4">Ready to Create Something Beautiful?</h3>
+                          <p className="text-gray-600 max-w-md text-lg leading-relaxed">
+                            Enter your Session URLs above and click Generate to see your stunning preview here
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                    {isGenerated && (capturedHtml || sessions.length > 0) && (
+                      <div className="p-6 bg-gradient-to-r from-green-50 to-blue-50 border-t-2 border-gray-100">
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                            <p className="text-sm font-semibold text-green-800">
+                              Generation Status: ✅ Success
+                            </p>
+                          </div>
+                          {sessions.length > 1 ? (
+                            <div>
+                              <p className="text-sm text-gray-700 font-medium">
+                                <strong>Sessions Processed:</strong> {sessions.length}
+                              </p>
+                              <div className="mt-2 space-y-1">
+                                {sessions.map((session, index) => (
+                                  <div key={index} className="text-xs text-gray-600 flex items-center gap-2">
+                                    <div className="w-1 h-1 bg-blue-400 rounded-full"></div>
+                                    {session.title || `Session ${index + 1}`}
+                                    {session.error && <span className="text-red-500">(Error)</span>}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ) : (
+                            <p className="text-sm text-gray-700">
+                              <strong>HTML Size:</strong> {capturedHtml.length.toLocaleString()} characters
+                            </p>
+                          )}
+                          <details className="group">
+                            <summary className="cursor-pointer font-medium text-sm text-gray-700 hover:text-purple-600 transition-colors duration-200 flex items-center gap-2">
+                              <ChevronDown className="h-4 w-4 group-open:rotate-180 transition-transform duration-200" />
+                              View Email HTML Source
+                            </summary>
+                            <div className="mt-3 p-4 bg-gray-900 rounded-xl max-h-40 overflow-auto">
+                              <pre className="text-xs text-green-400 whitespace-pre-wrap break-all font-mono">
+                                {emailHtml.substring(0, 2000)}...
+                              </pre>
+                            </div>
+                          </details>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            ) : (
+              <Card className="glass-card border-0 shadow-2xl card-hover">
                 <CardHeader>
-                  <div>
-                    <CardTitle className="flex items-center gap-2">
-                      <Sparkles className="h-5 w-5 text-purple-600" />
-                      Customize Your Email
-                    </CardTitle>
-                    <CardDescription>
-                      Adjust colors and typography to match your brand. Changes update automatically.
-                    </CardDescription>
+                  <div className="flex items-center gap-4">
+                    <div className="p-2 bg-gradient-to-br from-gray-400 to-gray-600 rounded-xl">
+                      <Eye className="h-6 w-6 text-white" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-2xl font-bold text-gray-800">Email Preview</CardTitle>
+                      <CardDescription className="text-gray-600 mt-1">
+                        Your beautiful email will appear here after generation
+                      </CardDescription>
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <Tabs defaultValue="colors" className="w-full">
-                    <TabsList className="grid w-full grid-cols-2">
-                      <TabsTrigger value="colors" className="flex items-center gap-2">
-                        <Sparkles className="h-4 w-4" />
-                        Colors
-                      </TabsTrigger>
-                      <TabsTrigger value="typography" className="flex items-center gap-2">
-                        <Sparkles className="h-4 w-4" />
-                        Typography
-                      </TabsTrigger>
-                    </TabsList>
-
-                    <TabsContent value="colors" className="space-y-6 mt-6">
-                      {/* Header Background Colors */}
-                      <div className="grid gap-4">
-                        <div className="flex items-center gap-2">
-                          <div className="w-3 h-3 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full"></div>
-                          <span className="text-sm font-medium">Header Background</span>
-                        </div>
-                        <div className="grid grid-cols-1 gap-4">
-                          <div className="space-y-2">
-                            <label className="text-xs text-muted-foreground">Primary Color</label>
-                            <div className="flex items-center gap-2">
-                              <input
-                                type="color"
-                                value={primaryColor}
-                                onChange={(e) => setPrimaryColor(e.target.value)}
-                                className="w-10 h-10 rounded-lg border cursor-pointer"
-                              />
-                              <Input
-                                value={primaryColor}
-                                onChange={(e) => setPrimaryColor(e.target.value)}
-                                className="text-xs font-mono"
-                                placeholder="#7851a9"
-                              />
-                            </div>
-                          </div>
-                          <div className="space-y-2">
-                            <label className="text-xs text-muted-foreground">Secondary Color</label>
-                            <div className="flex items-center gap-2">
-                              <input
-                                type="color"
-                                value={secondaryColor}
-                                onChange={(e) => setSecondaryColor(e.target.value)}
-                                className="w-10 h-10 rounded-lg border cursor-pointer"
-                              />
-                              <Input
-                                value={secondaryColor}
-                                onChange={(e) => setSecondaryColor(e.target.value)}
-                                className="text-xs font-mono"
-                                placeholder="#6a4c96"
-                              />
-                            </div>
-                          </div>
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-xs text-muted-foreground">Preview</label>
-                          <div 
-                            className="h-8 rounded-lg border"
-                            style={{
-                              background: `linear-gradient(135deg, ${primaryColor} 0%, ${secondaryColor} 100%)`
-                            }}
-                          />
-                        </div>
-                      </div>
-
-                      {/* Text Colors */}
-                      <div className="grid gap-4">
-                        <div className="flex items-center gap-2">
-                          <div className="w-3 h-3 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full"></div>
-                          <span className="text-sm font-medium">Text Colors</span>
-                        </div>
-                        <div className="grid grid-cols-1 gap-4">
-                          <div className="space-y-2">
-                            <label className="text-xs text-muted-foreground">Heading Color</label>
-                            <div className="flex items-center gap-2">
-                              <input
-                                type="color"
-                                value={headingTextColor}
-                                onChange={(e) => setHeadingTextColor(e.target.value)}
-                                className="w-10 h-10 rounded-lg border cursor-pointer"
-                              />
-                              <Input
-                                value={headingTextColor}
-                                onChange={(e) => setHeadingTextColor(e.target.value)}
-                                className="text-xs font-mono"
-                                placeholder="#1F2937"
-                              />
-                            </div>
-                          </div>
-                          <div className="space-y-2">
-                            <label className="text-xs text-muted-foreground">Paragraph Color</label>
-                            <div className="flex items-center gap-2">
-                              <input
-                                type="color"
-                                value={paragraphTextColor}
-                                onChange={(e) => setParagraphTextColor(e.target.value)}
-                                className="w-10 h-10 rounded-lg border cursor-pointer"
-                              />
-                              <Input
-                                value={paragraphTextColor}
-                                onChange={(e) => setParagraphTextColor(e.target.value)}
-                                className="text-xs font-mono"
-                                placeholder="#6B7280"
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </TabsContent>
-
-                    <TabsContent value="typography" className="space-y-6 mt-6">
-                      {/* Font Selection */}
-                      <div className="grid gap-4">
-                        <div className="flex items-center gap-2">
-                          <div className="w-3 h-3 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full"></div>
-                          <span className="text-sm font-medium">Font Families</span>
-                        </div>
-                        <div className="grid grid-cols-1 gap-4">
-                          <div className="space-y-2">
-                            <label className="text-xs text-muted-foreground">Heading Font</label>
-                            <select
-                              value={headingFont}
-                              onChange={(e) => setHeadingFont(e.target.value)}
-                              className="w-full px-3 py-2 text-sm border border-input bg-background rounded-md"
-                            >
-                              {googleFonts.map(font => (
-                                <option key={font} value={font}>{font}</option>
-                              ))}
-                            </select>
-                          </div>
-                          <div className="space-y-2">
-                            <label className="text-xs text-muted-foreground">Paragraph Font</label>
-                            <select
-                              value={paragraphFont}
-                              onChange={(e) => setParagraphFont(e.target.value)}
-                              className="w-full px-3 py-2 text-sm border border-input bg-background rounded-md"
-                            >
-                              {googleFonts.map(font => (
-                                <option key={font} value={font}>{font}</option>
-                              ))}
-                            </select>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      {/* Font Size Controls */}
-                      <div className="grid gap-4">
-                        <div className="flex items-center gap-2">
-                          <div className="w-3 h-3 bg-gradient-to-r from-orange-500 to-red-500 rounded-full"></div>
-                          <span className="text-sm font-medium">Font Sizes</span>
-                        </div>
-                        <div className="grid grid-cols-1 gap-4">
-                          <div className="space-y-2">
-                            <label className="text-xs text-muted-foreground">Heading Size</label>
-                            <div className="flex items-center gap-2">
-                              <input
-                                type="range"
-                                min="20"
-                                max="48"
-                                value={headingFontSize}
-                                onChange={(e) => setHeadingFontSize(Number(e.target.value))}
-                                className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                              />
-                              <Input
-                                type="number"
-                                min="20"
-                                max="48"
-                                value={headingFontSize}
-                                onChange={(e) => setHeadingFontSize(Number(e.target.value))}
-                                className="w-16 text-xs text-center"
-                              />
-                              <span className="text-xs text-muted-foreground">px</span>
-                            </div>
-                          </div>
-                          <div className="space-y-2">
-                            <label className="text-xs text-muted-foreground">Paragraph Size</label>
-                            <div className="flex items-center gap-2">
-                              <input
-                                type="range"
-                                min="12"
-                                max="24"
-                                value={paragraphFontSize}
-                                onChange={(e) => setParagraphFontSize(Number(e.target.value))}
-                                className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                              />
-                              <Input
-                                type="number"
-                                min="12"
-                                max="24"
-                                value={paragraphFontSize}
-                                onChange={(e) => setParagraphFontSize(Number(e.target.value))}
-                                className="w-16 text-xs text-center"
-                              />
-                              <span className="text-xs text-muted-foreground">px</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      {/* Typography Preview */}
-                      <div className="grid gap-4">
-                        <div className="flex items-center gap-2">
-                          <div className="w-3 h-3 bg-gradient-to-r from-pink-500 to-purple-500 rounded-full"></div>
-                          <span className="text-sm font-medium">Preview</span>
-                        </div>
-                        <div className="p-4 bg-muted rounded-lg border">
-                          <div 
-                            className="font-bold mb-3"
-                            style={{ 
-                              fontFamily: headingFont,
-                              fontSize: `${headingFontSize}px`,
-                              color: headingTextColor,
-                              lineHeight: '1.2'
-                            }}
-                          >
-                            Sample Heading Text
-                          </div>
-                          <p 
-                            style={{ 
-                              fontFamily: paragraphFont,
-                              fontSize: `${paragraphFontSize}px`,
-                              color: paragraphTextColor,
-                              lineHeight: '1.6'
-                            }}
-                          >
-                            This is how your paragraph text will appear in the email template. You can see the font family, size, and color applied here.
-                          </p>
-                        </div>
-                      </div>
-                    </TabsContent>
-                  </Tabs>
+                  <div className="flex flex-col items-center justify-center h-96 p-8 text-center">
+                    <div className="p-8 bg-gradient-to-br from-purple-100 to-pink-100 rounded-full mb-8 floating-animation">
+                      <Mail className="h-20 w-20 text-purple-600" />
+                    </div>
+                    <h3 className="text-2xl font-bold text-gray-800 mb-4">Ready to Create Something Beautiful?</h3>
+                    <p className="text-gray-600 max-w-md text-lg leading-relaxed">
+                      Generate an email above to see your stunning preview here with real-time customization
+                    </p>
+                  </div>
                 </CardContent>
               </Card>
-
-              {/* Email Preview - Right side */}
-              <Card className="bg-background">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="flex items-center gap-2">
-                      Email Preview
-                      {isUpdatingPreview && (
-                        <div className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full"></div>
-                      )}
-                    </CardTitle>
-                    <CardDescription>
-                      Preview how your email will look to recipients
-                      {isGenerated && " • Changes update automatically"}
-                    </CardDescription>
-                  </div>
-                  <Button
-                    onClick={handleCopyHtml}
-                    className="gap-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold px-4 py-2 shadow-lg whitespace-nowrap flex items-center"
-                  >
-                    <Copy className="h-4 w-4 flex-shrink-0" />
-                    <span className="flex-shrink-0">{htmlCopied ? "✅ Copied!" : "Copy HTML"}</span>
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent className="p-0 overflow-hidden">
-                <div className="border rounded-md h-[500px] overflow-auto relative">
-                  {/* Loading overlay */}
-                  {isUpdatingPreview && (
-                    <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-10 flex items-center justify-center">
-                      <div className="flex flex-col items-center gap-3">
-                        <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
-                        <p className="text-sm text-muted-foreground">Updating preview...</p>
-                      </div>
-                    </div>
-                  )}
-                  
-                  {isGenerated && (emailHtml || capturedHtml) ? (
-                    <div className="h-full">
-                      <iframe
-                        srcDoc={emailHtml || capturedHtml}
-                        className="w-full h-full border-0"
-                        title="Email Preview"
-                        sandbox="allow-same-origin allow-scripts"
-                      />
-                    </div>
-                  ) : isGenerated ? (
-                    <EmailPreview
-                      sessionData={{
-                        title: sessionData.title,
-                        coverImage: sessionData.coverImage,
-                        description: sessionData.description,
-                        date: sessionData.date,
-                        time: sessionData.time,
-                        location: sessionData.location,
-                        price: "$350"
-                      }}
-                    />
-                  ) : (
-                    <div className="flex flex-col items-center justify-center h-full p-6 text-center">
-                      <Clipboard className="h-12 w-12 text-muted-foreground mb-4" />
-                      <p className="text-muted-foreground">
-                        Enter Session URLs and click Generate to preview your email
-                      </p>
-                    </div>
-                  )}
-                </div>
-                {isGenerated && (capturedHtml || sessions.length > 0) && (
-                  <div className="p-4 border-t">
-                    <div className="space-y-2">
-                      <p className="text-sm text-muted-foreground">
-                        <strong>Capture Status:</strong> ✅ Success
-                      </p>
-                      {sessions.length > 1 ? (
-                        <div>
-                          <p className="text-sm text-muted-foreground">
-                            <strong>Sessions Processed:</strong>{" "}
-                            {sessions.length}
-                          </p>
-                          <div className="mt-2 space-y-1">
-                            {sessions.map((session, index) => (
-                              <div
-                                key={index}
-                                className="text-xs text-muted-foreground"
-                              >
-                                • {session.title || `Session ${index + 1}`}{" "}
-                                {session.error && "(Error)"}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      ) : (
-                        <p className="text-sm text-muted-foreground">
-                          <strong>HTML Size:</strong>{" "}
-                          {capturedHtml.length.toLocaleString()} characters
-                        </p>
-                      )}
-                      <details className="">
-                        <summary className="cursor-pointer font-medium text-sm text-muted-foreground hover:text-foreground">
-                          View Email HTML Source
-                        </summary>
-                        <div className="mt-2 p-3 bg-muted rounded-md max-h-32 overflow-auto">
-                          <pre className="text-xs whitespace-pre-wrap break-all">
-                            {emailHtml.substring(0, 2000)}...
-                          </pre>
-                        </div>
-                      </details>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-            </div>
-          ) : (
-            <Card className="bg-background">
-              <CardHeader>
-                <CardTitle>Email Preview</CardTitle>
-                <CardDescription>
-                  Preview how your email will look to recipients
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-col items-center justify-center h-full p-6 text-center">
-                  <Clipboard className="h-12 w-12 text-muted-foreground mb-4" />
-                  <p className="text-muted-foreground">
-                    Generate an email to see the preview
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Saved Projects Section - Removed premium requirement */}
+            )}
+          </div>
         </div>
       </div>
     </div>
