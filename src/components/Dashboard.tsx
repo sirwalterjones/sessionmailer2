@@ -69,6 +69,7 @@ export default function Dashboard({
   const [htmlCopied, setHtmlCopied] = useState(false);
   const [rawHtmlCopied, setRawHtmlCopied] = useState(false);
   const [isUpdatingPreview, setIsUpdatingPreview] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isGeneratorCollapsed, setIsGeneratorCollapsed] = useState(false);
   const [sessions, setSessions] = useState<Array<{
     url: string;
@@ -422,6 +423,47 @@ export default function Dashboard({
     }
   };
 
+  // Wrapper functions to track changes
+  const handlePrimaryColorChange = (color: string) => {
+    setPrimaryColor(color);
+    if (isGenerated) setHasUnsavedChanges(true);
+  };
+
+  const handleSecondaryColorChange = (color: string) => {
+    setSecondaryColor(color);
+    if (isGenerated) setHasUnsavedChanges(true);
+  };
+
+  const handleHeadingTextColorChange = (color: string) => {
+    setHeadingTextColor(color);
+    if (isGenerated) setHasUnsavedChanges(true);
+  };
+
+  const handleParagraphTextColorChange = (color: string) => {
+    setParagraphTextColor(color);
+    if (isGenerated) setHasUnsavedChanges(true);
+  };
+
+  const handleHeadingFontChange = (font: string) => {
+    setHeadingFont(font);
+    if (isGenerated) setHasUnsavedChanges(true);
+  };
+
+  const handleParagraphFontChange = (font: string) => {
+    setParagraphFont(font);
+    if (isGenerated) setHasUnsavedChanges(true);
+  };
+
+  const handleHeadingFontSizeChange = (size: number) => {
+    setHeadingFontSize(size);
+    if (isGenerated) setHasUnsavedChanges(true);
+  };
+
+  const handleParagraphFontSizeChange = (size: number) => {
+    setParagraphFontSize(size);
+    if (isGenerated) setHasUnsavedChanges(true);
+  };
+
   const updatePreview = async () => {
     if (!sessions.length) return;
     
@@ -479,6 +521,8 @@ export default function Dashboard({
             setRawHtml(session.rawHtmlWithButton || data.rawHtml || "");
           }
         }
+        // Clear the unsaved changes flag after successful update
+        setHasUnsavedChanges(false);
       }
     } catch (error) {
       console.error("Error updating preview:", error);
@@ -710,12 +754,12 @@ export default function Dashboard({
                                 <input
                                   type="color"
                                   value={primaryColor}
-                                  onChange={(e) => setPrimaryColor(e.target.value)}
+                                  onChange={(e) => handlePrimaryColorChange(e.target.value)}
                                   className="w-12 h-12 rounded-xl border-2 border-gray-200 cursor-pointer shadow-md"
                                 />
                                 <Input
                                   value={primaryColor}
-                                  onChange={(e) => setPrimaryColor(e.target.value)}
+                                  onChange={(e) => handlePrimaryColorChange(e.target.value)}
                                   className="flex-1 font-mono text-sm bg-white/70"
                                 />
                               </div>
@@ -726,12 +770,12 @@ export default function Dashboard({
                                 <input
                                   type="color"
                                   value={secondaryColor}
-                                  onChange={(e) => setSecondaryColor(e.target.value)}
+                                  onChange={(e) => handleSecondaryColorChange(e.target.value)}
                                   className="w-12 h-12 rounded-xl border-2 border-gray-200 cursor-pointer shadow-md"
                                 />
                                 <Input
                                   value={secondaryColor}
-                                  onChange={(e) => setSecondaryColor(e.target.value)}
+                                  onChange={(e) => handleSecondaryColorChange(e.target.value)}
                                   className="flex-1 font-mono text-sm bg-white/70"
                                 />
                               </div>
@@ -745,12 +789,12 @@ export default function Dashboard({
                                 <input
                                   type="color"
                                   value={headingTextColor}
-                                  onChange={(e) => setHeadingTextColor(e.target.value)}
+                                  onChange={(e) => handleHeadingTextColorChange(e.target.value)}
                                   className="w-12 h-12 rounded-xl border-2 border-gray-200 cursor-pointer shadow-md"
                                 />
                                 <Input
                                   value={headingTextColor}
-                                  onChange={(e) => setHeadingTextColor(e.target.value)}
+                                  onChange={(e) => handleHeadingTextColorChange(e.target.value)}
                                   className="flex-1 font-mono text-sm bg-white/70"
                                 />
                               </div>
@@ -761,12 +805,12 @@ export default function Dashboard({
                                 <input
                                   type="color"
                                   value={paragraphTextColor}
-                                  onChange={(e) => setParagraphTextColor(e.target.value)}
+                                  onChange={(e) => handleParagraphTextColorChange(e.target.value)}
                                   className="w-12 h-12 rounded-xl border-2 border-gray-200 cursor-pointer shadow-md"
                                 />
                                 <Input
                                   value={paragraphTextColor}
-                                  onChange={(e) => setParagraphTextColor(e.target.value)}
+                                  onChange={(e) => handleParagraphTextColorChange(e.target.value)}
                                   className="flex-1 font-mono text-sm bg-white/70"
                                 />
                               </div>
@@ -825,7 +869,7 @@ export default function Dashboard({
                               <label className="text-sm font-medium text-gray-700">Heading Font</label>
                               <select
                                 value={headingFont}
-                                onChange={(e) => setHeadingFont(e.target.value)}
+                                onChange={(e) => handleHeadingFontChange(e.target.value)}
                                 className="w-full p-3 border-2 border-gray-200 rounded-xl bg-white/70 focus:border-blue-400 transition-all duration-300"
                               >
                                 {googleFonts.map(font => (
@@ -837,7 +881,7 @@ export default function Dashboard({
                               <label className="text-sm font-medium text-gray-700">Paragraph Font</label>
                               <select
                                 value={paragraphFont}
-                                onChange={(e) => setParagraphFont(e.target.value)}
+                                onChange={(e) => handleParagraphFontChange(e.target.value)}
                                 className="w-full p-3 border-2 border-gray-200 rounded-xl bg-white/70 focus:border-blue-400 transition-all duration-300"
                               >
                                 {googleFonts.map(font => (
@@ -856,7 +900,7 @@ export default function Dashboard({
                                   min="20"
                                   max="48"
                                   value={headingFontSize}
-                                  onChange={(e) => setHeadingFontSize(Number(e.target.value))}
+                                  onChange={(e) => handleHeadingFontSizeChange(Number(e.target.value))}
                                   className="flex-1 h-2 bg-gradient-to-r from-blue-200 to-purple-200 rounded-lg appearance-none cursor-pointer"
                                 />
                                 <div className="flex items-center gap-1 bg-white/70 rounded-lg px-3 py-1 border">
@@ -865,7 +909,7 @@ export default function Dashboard({
                                     min="20"
                                     max="48"
                                     value={headingFontSize}
-                                    onChange={(e) => setHeadingFontSize(Number(e.target.value))}
+                                    onChange={(e) => handleHeadingFontSizeChange(Number(e.target.value))}
                                     className="w-16 text-xs text-center border-0 bg-transparent p-0"
                                   />
                                   <span className="text-xs text-gray-500">px</span>
@@ -880,7 +924,7 @@ export default function Dashboard({
                                   min="12"
                                   max="24"
                                   value={paragraphFontSize}
-                                  onChange={(e) => setParagraphFontSize(Number(e.target.value))}
+                                  onChange={(e) => handleParagraphFontSizeChange(Number(e.target.value))}
                                   className="flex-1 h-2 bg-gradient-to-r from-green-200 to-blue-200 rounded-lg appearance-none cursor-pointer"
                                 />
                                 <div className="flex items-center gap-1 bg-white/70 rounded-lg px-3 py-1 border">
@@ -889,7 +933,7 @@ export default function Dashboard({
                                     min="12"
                                     max="24"
                                     value={paragraphFontSize}
-                                    onChange={(e) => setParagraphFontSize(Number(e.target.value))}
+                                    onChange={(e) => handleParagraphFontSizeChange(Number(e.target.value))}
                                     className="w-16 text-xs text-center border-0 bg-transparent p-0"
                                   />
                                   <span className="text-xs text-gray-500">px</span>
@@ -932,26 +976,45 @@ export default function Dashboard({
                       </TabsContent>
                     </Tabs>
                     
-                    {/* Update Preview Button */}
-                    {isGenerated && sessions.length > 0 && (
-                      <div className="mt-6 flex justify-center">
-                        <Button
-                          onClick={updatePreview}
-                          disabled={isUpdatingPreview}
-                          className="gap-2 sexy-button border-0 text-white font-semibold px-8 py-3 shadow-lg"
-                        >
-                          {isUpdatingPreview ? (
-                            <>
-                              <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
-                              Updating Preview...
-                            </>
-                          ) : (
-                            <>
-                              <Wand2 className="h-4 w-4" />
-                              Update Preview
-                            </>
-                          )}
-                        </Button>
+                    {/* Update Preview Section */}
+                    {isGenerated && (
+                      <div className="mt-6 space-y-4">
+                        {/* Unsaved Changes Indicator */}
+                        {hasUnsavedChanges && (
+                          <div className="flex items-center justify-center gap-3 p-4 bg-gradient-to-r from-orange-50 to-yellow-50 border-2 border-orange-200 rounded-xl">
+                            <div className="flex items-center gap-2">
+                              <div className="w-3 h-3 bg-orange-400 rounded-full animate-pulse"></div>
+                              <span className="text-orange-800 font-medium">You have unsaved customizations</span>
+                            </div>
+                            <span className="text-orange-600 text-sm">Click "Update Preview" to see your changes</span>
+                          </div>
+                        )}
+                        
+                        {/* Update Preview Button */}
+                        <div className="flex justify-center">
+                          <Button
+                            onClick={updatePreview}
+                            disabled={isUpdatingPreview}
+                            className={`gap-2 border-0 text-white font-semibold px-8 py-3 shadow-lg transition-all duration-300 ${
+                              hasUnsavedChanges 
+                                ? 'sexy-button animate-pulse' 
+                                : 'bg-gradient-to-r from-gray-400 to-gray-500 hover:from-gray-500 hover:to-gray-600'
+                            }`}
+                          >
+                            {isUpdatingPreview ? (
+                              <>
+                                <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
+                                Updating Preview...
+                              </>
+                            ) : (
+                              <>
+                                <Wand2 className="h-4 w-4" />
+                                Update Preview
+                                {hasUnsavedChanges && <span className="ml-1 text-xs">•</span>}
+                              </>
+                            )}
+                          </Button>
+                        </div>
                       </div>
                     )}
                   </CardContent>
