@@ -37,6 +37,9 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 import EmailPreview from "@/components/EmailPreview";
+import SaveProjectDialog from "@/components/SaveProjectDialog";
+import SavedProjects from "@/components/SavedProjects";
+import { SavedProject, ProjectCustomization } from "@/lib/supabase";
 
 interface DashboardProps {
   savedProjects?: Array<{
@@ -73,6 +76,12 @@ export default function Dashboard({
     firstImage: string | null;
     error?: string;
   }>>([]);
+  
+  // Save functionality state
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
+  const [savedProjectsRefresh, setSavedProjectsRefresh] = useState(0);
   
   // Color customization state
   const [primaryColor, setPrimaryColor] = useState("#7851a9");
@@ -300,8 +309,116 @@ export default function Dashboard({
   };
 
   const handleSaveProject = () => {
-    // Placeholder for save functionality
-    console.log("Save project functionality would go here");
+    if (!user?.id) {
+      setError("Please sign in to save projects");
+      return;
+    }
+    
+    if (!isGenerated || !emailHtml) {
+      setError("Please generate an email first");
+      return;
+    }
+    
+    setShowSaveDialog(true);
+  };
+
+  const handleSaveProjectConfirm = async (projectName: string) => {
+    if (!user?.id || !emailHtml) return;
+
+    try {
+      setIsSaving(true);
+      setSaveError("");
+
+      // Get the current URL(s)
+      const urls = urlInputs.map(input => input.value.trim()).filter(url => url.length > 0);
+      const projectUrl = urls.length === 1 ? urls[0] : urls.join(', ');
+
+      // Prepare customization data
+      const customization: ProjectCustomization = {
+        primaryColor,
+        secondaryColor,
+        headingTextColor,
+        paragraphTextColor,
+        headingFont,
+        paragraphFont,
+        headingFontSize,
+        paragraphFontSize,
+      };
+
+      const response = await fetch('/api/projects', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: user.id,
+          name: projectName,
+          url: projectUrl,
+          emailHtml,
+          customization,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to save project');
+      }
+
+      // Success - close dialog and refresh saved projects
+      setShowSaveDialog(false);
+      setSavedProjectsRefresh(prev => prev + 1);
+      
+      // Show success message
+      setError("");
+      
+    } catch (error) {
+      console.error('Error saving project:', error);
+      setSaveError(error instanceof Error ? error.message : 'Failed to save project');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleLoadProject = (project: SavedProject) => {
+    try {
+      // Load the project's customization settings
+      if (project.customization) {
+        const customization = project.customization as ProjectCustomization;
+        setPrimaryColor(customization.primaryColor || "#7851a9");
+        setSecondaryColor(customization.secondaryColor || "#6a4c96");
+        setHeadingTextColor(customization.headingTextColor || "#1F2937");
+        setParagraphTextColor(customization.paragraphTextColor || "#6B7280");
+        setHeadingFont(customization.headingFont || "Playfair Display");
+        setParagraphFont(customization.paragraphFont || "Georgia");
+        setHeadingFontSize(customization.headingFontSize || 28);
+        setParagraphFontSize(customization.paragraphFontSize || 16);
+      }
+
+      // Load the email HTML
+      setEmailHtml(project.email_html);
+      setCapturedHtml(project.email_html);
+      
+      // Set the URL inputs
+      const urls = project.url.includes(', ') ? project.url.split(', ') : [project.url];
+      setUrlInputs(urls.map((url, index) => ({ id: index + 1, value: url })));
+      setNextId(urls.length + 1);
+      
+      // Mark as generated
+      setIsGenerated(true);
+      
+      // Create a mock session for compatibility
+      setSessions([{
+        url: project.url,
+        title: project.name,
+        html: project.email_html,
+        firstImage: null
+      }]);
+
+    } catch (error) {
+      console.error('Error loading project:', error);
+      setError('Failed to load project');
+    }
   };
 
   const updatePreview = async () => {
@@ -971,9 +1088,24 @@ export default function Dashboard({
                 </CardContent>
               </Card>
             )}
+
+            {/* Saved Projects Section */}
+            <SavedProjects 
+              onLoadProject={handleLoadProject}
+              refreshTrigger={savedProjectsRefresh}
+            />
           </div>
         </div>
       </div>
+
+      {/* Save Project Dialog */}
+      <SaveProjectDialog
+        isOpen={showSaveDialog}
+        onClose={() => setShowSaveDialog(false)}
+        onSave={handleSaveProjectConfirm}
+        isLoading={isSaving}
+        error={saveError}
+      />
     </div>
   );
 }

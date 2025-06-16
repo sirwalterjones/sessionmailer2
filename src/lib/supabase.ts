@@ -44,6 +44,7 @@ export type Database = {
           name: string
           url: string
           email_html: string
+          customization: any | null
           created_at: string
           updated_at: string
         }
@@ -53,6 +54,7 @@ export type Database = {
           name: string
           url: string
           email_html: string
+          customization?: any | null
           created_at?: string
           updated_at?: string
         }
@@ -62,10 +64,26 @@ export type Database = {
           name?: string
           url?: string
           email_html?: string
+          customization?: any | null
           created_at?: string
           updated_at?: string
         }
       }
     }
   }
-} 
+}
+
+// Type for project customization settings
+export type ProjectCustomization = {
+  primaryColor: string
+  secondaryColor: string
+  headingTextColor: string
+  paragraphTextColor: string
+  headingFont: string
+  paragraphFont: string
+  headingFontSize: number
+  paragraphFontSize: number
+}
+
+// Type for saved project
+export type SavedProject = Database['public']['Tables']['saved_projects']['Row'] 

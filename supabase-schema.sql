@@ -26,6 +26,7 @@ CREATE TABLE public.saved_projects (
   name TEXT NOT NULL,
   url TEXT NOT NULL,
   email_html TEXT NOT NULL,
+  customization JSONB,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -81,4 +82,17 @@ CREATE TRIGGER update_profiles_updated_at
 
 CREATE TRIGGER update_saved_projects_updated_at
   BEFORE UPDATE ON public.saved_projects
-  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column(); 
+  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+-- Add customization column to existing saved_projects table (if it doesn't exist)
+-- This is safe to run multiple times
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'saved_projects' 
+    AND column_name = 'customization'
+  ) THEN
+    ALTER TABLE public.saved_projects ADD COLUMN customization JSONB;
+  END IF;
+END $$; 
