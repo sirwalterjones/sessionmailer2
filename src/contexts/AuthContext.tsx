@@ -205,6 +205,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } catch (e) {
           console.warn('Could not clear storage:', e)
         }
+        
+        // Redirect to sign-out page
+        window.location.href = '/auth/signout'
       }
     } catch (error) {
       console.warn('Supabase sign out failed, using fallback:', error)
@@ -225,8 +228,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           console.warn('Could not clear storage:', e)
         }
         
-        // Force redirect to home page
-        window.location.href = '/'
+        // Redirect to sign-out page even on error
+        window.location.href = '/auth/signout'
       }
     } finally {
       setLoading(false)
