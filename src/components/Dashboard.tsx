@@ -788,16 +788,17 @@ export default function Dashboard({
                             </div>
                             <div className="space-y-4">
                               <div 
-                                className="h-16 rounded-xl shadow-md flex items-center justify-center text-white font-semibold"
-                                style={{ backgroundColor: primaryColor }}
+                                className="h-16 rounded-xl shadow-md flex overflow-hidden"
+                                style={{ 
+                                  background: `linear-gradient(to right, ${primaryColor} 0%, ${primaryColor} 50%, ${secondaryColor} 50%, ${secondaryColor} 100%)`
+                                }}
                               >
-                                Primary Color
-                              </div>
-                              <div 
-                                className="h-12 rounded-xl shadow-md flex items-center justify-center text-white font-medium"
-                                style={{ backgroundColor: secondaryColor }}
-                              >
-                                Secondary Color
+                                <div className="flex-1 flex items-center justify-center text-white font-semibold">
+                                  Primary
+                                </div>
+                                <div className="flex-1 flex items-center justify-center text-white font-semibold">
+                                  Secondary
+                                </div>
                               </div>
                               <div className="space-y-2">
                                 <h3 
