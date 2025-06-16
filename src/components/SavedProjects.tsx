@@ -153,14 +153,14 @@ export default function SavedProjects({ onLoadProject, refreshTrigger }: SavedPr
   return (
     <Card className="glass-card border-0 shadow-2xl card-hover">
       <CardHeader>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <div className="p-2 bg-gradient-to-br from-blue-500 to-purple-500 rounded-xl">
               <Folder className="h-6 w-6 text-white" />
             </div>
             <div>
-              <CardTitle className="text-2xl font-bold text-gray-800">Saved Projects</CardTitle>
-              <CardDescription className="text-gray-600">
+              <CardTitle className="text-xl sm:text-2xl font-bold text-gray-800">Saved Projects</CardTitle>
+              <CardDescription className="text-gray-600 text-sm sm:text-base">
                 {projects.length === 0 
                   ? "No saved projects yet" 
                   : `${projects.length} saved ${projects.length === 1 ? 'project' : 'projects'}`
@@ -168,7 +168,7 @@ export default function SavedProjects({ onLoadProject, refreshTrigger }: SavedPr
               </CardDescription>
             </div>
           </div>
-          <Badge variant="secondary" className="bg-gradient-to-r from-purple-100 to-pink-100 text-purple-700 border-0">
+          <Badge variant="secondary" className="bg-gradient-to-r from-purple-100 to-pink-100 text-purple-700 border-0 self-start sm:self-center">
             {projects.length} Total
           </Badge>
         </div>
@@ -198,33 +198,33 @@ export default function SavedProjects({ onLoadProject, refreshTrigger }: SavedPr
                 key={project.id}
                 className="p-4 bg-white/70 backdrop-blur-sm rounded-xl border-2 border-gray-100 hover:border-purple-200 transition-all duration-300 group"
               >
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-3 mb-2">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-2">
                       <h3 className="font-semibold text-gray-800 truncate">{project.name}</h3>
                       {project.customization && (
-                        <Badge variant="secondary" className="text-xs bg-green-100 text-green-700 border-0">
+                        <Badge variant="secondary" className="text-xs bg-green-100 text-green-700 border-0 self-start">
                           Customized
                         </Badge>
                       )}
                     </div>
-                    <div className="flex items-center gap-4 text-sm text-gray-600">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-sm text-gray-600">
                       <div className="flex items-center gap-1">
                         <Calendar className="h-3 w-3" />
                         {formatDate(project.created_at)}
                       </div>
-                      <div className="truncate max-w-xs">
+                      <div className="truncate text-xs sm:text-sm">
                         {project.url}
                       </div>
                     </div>
                   </div>
                   
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 self-start sm:self-center">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => onLoadProject(project)}
-                      className="gap-2 border-purple-200 hover:border-purple-400 hover:bg-purple-50 transition-all duration-300"
+                      className="gap-2 border-purple-200 hover:border-purple-400 hover:bg-purple-50 transition-all duration-300 text-xs sm:text-sm"
                     >
                       <Eye className="h-3 w-3" />
                       Load

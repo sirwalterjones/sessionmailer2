@@ -68,7 +68,7 @@ export default function Dashboard({
   const [emailHtml, setEmailHtml] = useState("");
   const [htmlCopied, setHtmlCopied] = useState(false);
   const [rawHtmlCopied, setRawHtmlCopied] = useState(false);
-
+  const [isUpdatingPreview, setIsUpdatingPreview] = useState(false);
   const [isGeneratorCollapsed, setIsGeneratorCollapsed] = useState(false);
   const [sessions, setSessions] = useState<Array<{
     url: string;
@@ -422,8 +422,70 @@ export default function Dashboard({
     }
   };
 
-  // Note: updatePreview function removed since we no longer do automatic updates
-  // The initial generation includes all customization parameters
+  const updatePreview = async () => {
+    if (!sessions.length) return;
+    
+    setIsUpdatingPreview(true);
+    
+    try {
+      // Get the URLs from sessions
+      const urls = sessions.map(session => session.url);
+      
+      const requestBody = urls.length === 1 
+        ? { 
+            url: urls[0],
+            primaryColor,
+            secondaryColor,
+            headingFont,
+            paragraphFont,
+            headingFontSize,
+            paragraphFontSize,
+            headingTextColor,
+            paragraphTextColor
+          }
+        : { 
+            urls,
+            primaryColor,
+            secondaryColor,
+            headingFont,
+            paragraphFont,
+            headingFontSize,
+            paragraphFontSize,
+            headingTextColor,
+            paragraphTextColor
+          };
+
+      const response = await fetch("/api/enhanced-extract", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.sessions && Array.isArray(data.sessions)) {
+          if (data.sessions.length > 1) {
+            // Multiple sessions response
+            setEmailHtml(data.emailHtml || "");
+            setCapturedHtml(data.emailHtml || "");
+            setRawHtml(data.rawHtml || "");
+          } else if (data.sessions.length === 1) {
+            // Single session response
+            const session = data.sessions[0];
+            setEmailHtml(session.enhancedEmailHtml || data.emailHtml || "");
+            setCapturedHtml(session.enhancedEmailHtml || data.emailHtml || "");
+            setRawHtml(session.rawHtmlWithButton || data.rawHtml || "");
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error updating preview:", error);
+    } finally {
+      setIsUpdatingPreview(false);
+    }
+  };
 
   // Note: Removed automatic preview updates to improve performance
   // The initial generation includes all customization parameters
@@ -869,6 +931,29 @@ export default function Dashboard({
                         </div>
                       </TabsContent>
                     </Tabs>
+                    
+                    {/* Update Preview Button */}
+                    {isGenerated && sessions.length > 0 && (
+                      <div className="mt-6 flex justify-center">
+                        <Button
+                          onClick={updatePreview}
+                          disabled={isUpdatingPreview}
+                          className="gap-2 sexy-button border-0 text-white font-semibold px-8 py-3 shadow-lg"
+                        >
+                          {isUpdatingPreview ? (
+                            <>
+                              <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
+                              Updating Preview...
+                            </>
+                          ) : (
+                            <>
+                              <Wand2 className="h-4 w-4" />
+                              Update Preview
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
 
@@ -885,7 +970,7 @@ export default function Dashboard({
                             Email Preview
                           </CardTitle>
                           <CardDescription className="text-gray-600 mt-1">
-                            See how your email looks to recipients • Updates automatically
+                            See how your email looks to recipients • Click "Update Preview" after customizing
                           </CardDescription>
                         </div>
                       </div>
@@ -1034,6 +1119,12 @@ export default function Dashboard({
         subtitle={`Processing ${urlInputs.filter(input => input.value.trim()).length} session${urlInputs.filter(input => input.value.trim()).length > 1 ? 's' : ''}...`}
       />
 
+      {/* Preview Update Modal */}
+      <LoadingModal 
+        isOpen={isUpdatingPreview}
+        title="Updating Your Preview"
+        subtitle="Applying your beautiful customizations..."
+      />
 
     </div>
   );
