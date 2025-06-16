@@ -2,14 +2,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { Database } from '@/lib/supabase';
 
-const supabase = createClient<Database>(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+function getSupabaseClient() {
+  return createClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+}
 
 // GET - Fetch user's saved projects
 export async function GET(request: NextRequest) {
   try {
+    const supabase = getSupabaseClient();
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
 
@@ -38,6 +41,7 @@ export async function GET(request: NextRequest) {
 // POST - Save a new project
 export async function POST(request: NextRequest) {
   try {
+    const supabase = getSupabaseClient();
     const body = await request.json();
     const { userId, name, url, emailHtml, customization } = body;
 
@@ -81,6 +85,7 @@ export async function POST(request: NextRequest) {
 // PUT - Update an existing project
 export async function PUT(request: NextRequest) {
   try {
+    const supabase = getSupabaseClient();
     const body = await request.json();
     const { projectId, userId, name, url, emailHtml, customization } = body;
 
@@ -123,6 +128,7 @@ export async function PUT(request: NextRequest) {
 // DELETE - Delete a project
 export async function DELETE(request: NextRequest) {
   try {
+    const supabase = getSupabaseClient();
     const { searchParams } = new URL(request.url);
     const projectId = searchParams.get('projectId');
     const userId = searchParams.get('userId');
