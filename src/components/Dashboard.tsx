@@ -258,11 +258,6 @@ export default function Dashboard({
         }
         
         setIsGenerated(true);
-        
-        // Enable user customizing after generation
-        setTimeout(() => {
-          setIsUserCustomizing(true);
-        }, 1000);
       } else {
         throw new Error(data.error || "Failed to extract session data");
       }
@@ -387,9 +382,6 @@ export default function Dashboard({
 
   const handleLoadProject = (project: SavedProject) => {
     try {
-      // Temporarily disable user customizing flag to prevent immediate preview updates
-      setIsUserCustomizing(false);
-      
       // Load the project's customization settings
       if (project.customization) {
         const customization = project.customization as ProjectCustomization;
@@ -422,11 +414,6 @@ export default function Dashboard({
         html: project.email_html,
         firstImage: null
       }]);
-
-      // Enable user customizing after a short delay to allow state to settle
-      setTimeout(() => {
-        setIsUserCustomizing(true);
-      }, 1000);
 
     } catch (error) {
       console.error('Error loading project:', error);
@@ -499,61 +486,17 @@ export default function Dashboard({
     }
   };
 
-  // Track if this is a user-initiated customization change (not from loading a project)
-  const [isUserCustomizing, setIsUserCustomizing] = useState(false);
-
-  // Wrapper functions to enable user customizing flag when user makes changes
-  const handlePrimaryColorChange = (value: string) => {
-    setIsUserCustomizing(true);
-    setPrimaryColor(value);
-  };
-
-  const handleSecondaryColorChange = (value: string) => {
-    setIsUserCustomizing(true);
-    setSecondaryColor(value);
-  };
-
-  const handleHeadingTextColorChange = (value: string) => {
-    setIsUserCustomizing(true);
-    setHeadingTextColor(value);
-  };
-
-  const handleParagraphTextColorChange = (value: string) => {
-    setIsUserCustomizing(true);
-    setParagraphTextColor(value);
-  };
-
-  const handleHeadingFontChange = (value: string) => {
-    setIsUserCustomizing(true);
-    setHeadingFont(value);
-  };
-
-  const handleParagraphFontChange = (value: string) => {
-    setIsUserCustomizing(true);
-    setParagraphFont(value);
-  };
-
-  const handleHeadingFontSizeChange = (value: number) => {
-    setIsUserCustomizing(true);
-    setHeadingFontSize(value);
-  };
-
-  const handleParagraphFontSizeChange = (value: number) => {
-    setIsUserCustomizing(true);
-    setParagraphFontSize(value);
-  };
-
-  // Real-time preview updates when colors or fonts change (only after initial generation and user changes)
+  // Real-time preview updates when colors or fonts change (only after initial generation)
   useEffect(() => {
-    // Only update preview if email has been generated, we have sessions data, and user is actively customizing
-    if (!isGenerated || !sessions.length || !isUserCustomizing) return;
+    // Only update preview if email has been generated and we have sessions data
+    if (!isGenerated || !sessions.length) return;
     
     const timeoutId = setTimeout(() => {
       updatePreview();
     }, 500); // Debounce updates by 500ms
 
     return () => clearTimeout(timeoutId);
-  }, [primaryColor, secondaryColor, headingFont, paragraphFont, headingFontSize, paragraphFontSize, headingTextColor, paragraphTextColor, isGenerated, sessions, isUserCustomizing]);
+  }, [primaryColor, secondaryColor, headingFont, paragraphFont, headingFontSize, paragraphFontSize, headingTextColor, paragraphTextColor, isGenerated, sessions]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
@@ -774,12 +717,12 @@ export default function Dashboard({
                                 <input
                                   type="color"
                                   value={primaryColor}
-                                  onChange={(e) => handlePrimaryColorChange(e.target.value)}
+                                  onChange={(e) => setPrimaryColor(e.target.value)}
                                   className="w-12 h-12 rounded-xl border-2 border-gray-200 cursor-pointer shadow-md"
                                 />
                                 <Input
                                   value={primaryColor}
-                                  onChange={(e) => handlePrimaryColorChange(e.target.value)}
+                                  onChange={(e) => setPrimaryColor(e.target.value)}
                                   className="flex-1 font-mono text-sm bg-white/70"
                                 />
                               </div>
@@ -790,12 +733,12 @@ export default function Dashboard({
                                 <input
                                   type="color"
                                   value={secondaryColor}
-                                  onChange={(e) => handleSecondaryColorChange(e.target.value)}
+                                  onChange={(e) => setSecondaryColor(e.target.value)}
                                   className="w-12 h-12 rounded-xl border-2 border-gray-200 cursor-pointer shadow-md"
                                 />
                                 <Input
                                   value={secondaryColor}
-                                  onChange={(e) => handleSecondaryColorChange(e.target.value)}
+                                  onChange={(e) => setSecondaryColor(e.target.value)}
                                   className="flex-1 font-mono text-sm bg-white/70"
                                 />
                               </div>
@@ -809,12 +752,12 @@ export default function Dashboard({
                                 <input
                                   type="color"
                                   value={headingTextColor}
-                                  onChange={(e) => handleHeadingTextColorChange(e.target.value)}
+                                  onChange={(e) => setHeadingTextColor(e.target.value)}
                                   className="w-12 h-12 rounded-xl border-2 border-gray-200 cursor-pointer shadow-md"
                                 />
                                 <Input
                                   value={headingTextColor}
-                                  onChange={(e) => handleHeadingTextColorChange(e.target.value)}
+                                  onChange={(e) => setHeadingTextColor(e.target.value)}
                                   className="flex-1 font-mono text-sm bg-white/70"
                                 />
                               </div>
@@ -825,12 +768,12 @@ export default function Dashboard({
                                 <input
                                   type="color"
                                   value={paragraphTextColor}
-                                  onChange={(e) => handleParagraphTextColorChange(e.target.value)}
+                                  onChange={(e) => setParagraphTextColor(e.target.value)}
                                   className="w-12 h-12 rounded-xl border-2 border-gray-200 cursor-pointer shadow-md"
                                 />
                                 <Input
                                   value={paragraphTextColor}
-                                  onChange={(e) => handleParagraphTextColorChange(e.target.value)}
+                                  onChange={(e) => setParagraphTextColor(e.target.value)}
                                   className="flex-1 font-mono text-sm bg-white/70"
                                 />
                               </div>
@@ -889,7 +832,7 @@ export default function Dashboard({
                               <label className="text-sm font-medium text-gray-700">Heading Font</label>
                               <select
                                 value={headingFont}
-                                onChange={(e) => handleHeadingFontChange(e.target.value)}
+                                onChange={(e) => setHeadingFont(e.target.value)}
                                 className="w-full p-3 border-2 border-gray-200 rounded-xl bg-white/70 focus:border-blue-400 transition-all duration-300"
                               >
                                 {googleFonts.map(font => (
@@ -901,7 +844,7 @@ export default function Dashboard({
                               <label className="text-sm font-medium text-gray-700">Paragraph Font</label>
                               <select
                                 value={paragraphFont}
-                                onChange={(e) => handleParagraphFontChange(e.target.value)}
+                                onChange={(e) => setParagraphFont(e.target.value)}
                                 className="w-full p-3 border-2 border-gray-200 rounded-xl bg-white/70 focus:border-blue-400 transition-all duration-300"
                               >
                                 {googleFonts.map(font => (
@@ -920,7 +863,7 @@ export default function Dashboard({
                                   min="20"
                                   max="48"
                                   value={headingFontSize}
-                                  onChange={(e) => handleHeadingFontSizeChange(Number(e.target.value))}
+                                  onChange={(e) => setHeadingFontSize(Number(e.target.value))}
                                   className="flex-1 h-2 bg-gradient-to-r from-blue-200 to-purple-200 rounded-lg appearance-none cursor-pointer"
                                 />
                                 <div className="flex items-center gap-1 bg-white/70 rounded-lg px-3 py-1 border">
@@ -929,7 +872,7 @@ export default function Dashboard({
                                     min="20"
                                     max="48"
                                     value={headingFontSize}
-                                    onChange={(e) => handleHeadingFontSizeChange(Number(e.target.value))}
+                                    onChange={(e) => setHeadingFontSize(Number(e.target.value))}
                                     className="w-16 text-xs text-center border-0 bg-transparent p-0"
                                   />
                                   <span className="text-xs text-gray-500">px</span>
@@ -944,7 +887,7 @@ export default function Dashboard({
                                   min="12"
                                   max="24"
                                   value={paragraphFontSize}
-                                  onChange={(e) => handleParagraphFontSizeChange(Number(e.target.value))}
+                                  onChange={(e) => setParagraphFontSize(Number(e.target.value))}
                                   className="flex-1 h-2 bg-gradient-to-r from-green-200 to-blue-200 rounded-lg appearance-none cursor-pointer"
                                 />
                                 <div className="flex items-center gap-1 bg-white/70 rounded-lg px-3 py-1 border">
@@ -953,7 +896,7 @@ export default function Dashboard({
                                     min="12"
                                     max="24"
                                     value={paragraphFontSize}
-                                    onChange={(e) => handleParagraphFontSizeChange(Number(e.target.value))}
+                                    onChange={(e) => setParagraphFontSize(Number(e.target.value))}
                                     className="w-16 text-xs text-center border-0 bg-transparent p-0"
                                   />
                                   <span className="text-xs text-gray-500">px</span>

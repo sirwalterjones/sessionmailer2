@@ -73,8 +73,9 @@ export async function POST(request: NextRequest) {
       userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
     });
     
-    // Process URLs in parallel for better performance
-    const sessionPromises = urlsToProcess.map(async (url): Promise<SessionData> => {
+    const sessions: SessionData[] = [];
+    
+    for (const url of urlsToProcess) {
       try {
         const page = await context.newPage();
         
@@ -97,150 +98,150 @@ export async function POST(request: NextRequest) {
                        document.querySelector('title')?.textContent?.trim() || 
                        'Photography Session';
           
-          // Extract description - comprehensive approach
-          let description = '';
-          
-          // Try multiple approaches to find the main content
-          const contentSelectors = [
-            '.Mobiledoc',
-            '[class*="description"]',
-            '[class*="content"]',
-            '[class*="body"]',
-            '[class*="text"]',
-            'main',
-            '.main-content',
-            'article',
-            '.article-content'
-          ];
-          
-          let descriptionElement = null;
-          for (const selector of contentSelectors) {
-            const element = document.querySelector(selector);
-            if (element && element.textContent && element.textContent.trim().length > 100) {
-              descriptionElement = element;
-              break;
-            }
-          }
-          
-          if (descriptionElement) {
-            // Remove script and style elements first
-            const scripts = descriptionElement.querySelectorAll('script, style, noscript');
-            scripts.forEach(script => script.remove());
-            
-            // Get all paragraphs and text content within the description
-            const paragraphs = descriptionElement.querySelectorAll('p, div');
-            if (paragraphs.length > 0) {
-              description = Array.from(paragraphs)
-                .map(p => p.textContent?.trim())
-                .filter(text => text && 
-                  text.length > 10 && // Minimum meaningful length
-                  text.length < 2000 && 
-                  !text.match(/^(book|select|choose|click|powered\s+by)/i) && // Filter out action text
-                  !text.match(/^\d+:\d+\s*(AM|PM)/i) && // Filter out time slots
-                  !text.match(/^(\{|\}|function|var\s+|const\s+|let\s+|setTimeout|setInterval)/i) && // Filter out JS
-                  !text.match(/^(\.|\#)[a-zA-Z_-]+\s*\{/) && // Filter out CSS
-                  !text.match(/^(http|https|www\.)/i) && // Filter out URLs
-                  !text.match(/^[a-zA-Z0-9+/]{20,}={0,2}$/) && // Filter out base64
-                  !text.includes('fbq') && // Filter out Facebook tracking
-                  !text.includes('gtag') && // Filter out Google tracking
-                  !text.includes('dataLayer') && // Filter out Google Analytics
-                  !text.includes('addEventListener') && // Filter out JS event listeners
-                  !text.includes('querySelector') && // Filter out JS DOM queries
-                  text.split(' ').length > 3) // Must have at least 4 words
-                .slice(0, 10) // Take reasonable amount of paragraphs
-                .join('\n\n');
-            } else {
-              const text = descriptionElement.textContent?.trim() || '';
-              // Apply same filters to full text
-              if (text.length > 50 && text.length < 8000 && 
-                  !text.includes('function') && 
-                  !text.includes('setTimeout') &&
-                  !text.includes('fbq') &&
-                  !text.includes('gtag')) {
-                description = text;
-              }
-            }
-          }
-          
-          // If still no description, try to find the main content area more broadly
-          if (!description || description.length < 50) {
-            // Look for the largest meaningful text block that's not navigation or header
-            const allDivs = document.querySelectorAll('div, section, article, p');
-            let largestContent = '';
-            
-            for (const div of Array.from(allDivs)) {
-              // Remove scripts and styles from this element too
-              const clonedDiv = div.cloneNode(true) as Element;
-              const scripts = clonedDiv.querySelectorAll('script, style, noscript');
-              scripts.forEach(script => script.remove());
+                     // Extract description - comprehensive approach
+           let description = '';
+           
+           // Try multiple approaches to find the main content
+           const contentSelectors = [
+             '.Mobiledoc',
+             '[class*="description"]',
+             '[class*="content"]',
+             '[class*="body"]',
+             '[class*="text"]',
+             'main',
+             '.main-content',
+             'article',
+             '.article-content'
+           ];
+           
+           let descriptionElement = null;
+           for (const selector of contentSelectors) {
+             const element = document.querySelector(selector);
+             if (element && element.textContent && element.textContent.trim().length > 100) {
+               descriptionElement = element;
+               break;
+             }
+           }
+           
+           if (descriptionElement) {
+             // Remove script and style elements first
+             const scripts = descriptionElement.querySelectorAll('script, style, noscript');
+             scripts.forEach(script => script.remove());
+             
+             // Get all paragraphs and text content within the description
+             const paragraphs = descriptionElement.querySelectorAll('p, div');
+             if (paragraphs.length > 0) {
+               description = Array.from(paragraphs)
+                 .map(p => p.textContent?.trim())
+                 .filter(text => text && 
+                   text.length > 10 && // Minimum meaningful length
+                   text.length < 2000 && 
+                   !text.match(/^(book|select|choose|click|powered\s+by)/i) && // Filter out action text
+                   !text.match(/^\d+:\d+\s*(AM|PM)/i) && // Filter out time slots
+                   !text.match(/^(\{|\}|function|var\s+|const\s+|let\s+|setTimeout|setInterval)/i) && // Filter out JS
+                   !text.match(/^(\.|\#)[a-zA-Z_-]+\s*\{/) && // Filter out CSS
+                   !text.match(/^(http|https|www\.)/i) && // Filter out URLs
+                   !text.match(/^[a-zA-Z0-9+/]{20,}={0,2}$/) && // Filter out base64
+                   !text.includes('fbq') && // Filter out Facebook tracking
+                   !text.includes('gtag') && // Filter out Google tracking
+                   !text.includes('dataLayer') && // Filter out Google Analytics
+                   !text.includes('addEventListener') && // Filter out JS event listeners
+                   !text.includes('querySelector') && // Filter out JS DOM queries
+                   text.split(' ').length > 3) // Must have at least 4 words
+                 .slice(0, 10) // Take reasonable amount of paragraphs
+                 .join('\n\n');
+             } else {
+               const text = descriptionElement.textContent?.trim() || '';
+               // Apply same filters to full text
+               if (text.length > 50 && text.length < 8000 && 
+                   !text.includes('function') && 
+                   !text.includes('setTimeout') &&
+                   !text.includes('fbq') &&
+                   !text.includes('gtag')) {
+                 description = text;
+               }
+             }
+           }
+           
+                       // If still no description, try to find the main content area more broadly
+            if (!description || description.length < 50) {
+              // Look for the largest meaningful text block that's not navigation or header
+              const allDivs = document.querySelectorAll('div, section, article, p');
+              let largestContent = '';
               
-              const text = clonedDiv.textContent?.trim() || '';
-              // Skip navigation, headers, scripts, and apply content filters
-              if (text.length > largestContent.length && 
-                  text.length > 100 && 
-                  text.length < 8000 &&
-                  !div.closest('nav') && 
-                  !div.closest('header') &&
-                  !div.closest('footer') &&
-                  !div.closest('script') &&
-                  !div.closest('style') &&
-                  !text.includes('function(') &&
-                  !text.includes('setTimeout') &&
-                  !text.includes('fbq') &&
-                  !text.includes('gtag') &&
-                  !text.includes('.addEventListener') &&
-                  !text.includes('querySelector') &&
-                  !text.match(/^[\{\}\(\);,\s]*$/) && // Not just punctuation
-                  text.split(' ').length > 10) { // Must have meaningful word count
-                largestContent = text;
+              for (const div of Array.from(allDivs)) {
+                // Remove scripts and styles from this element too
+                const clonedDiv = div.cloneNode(true) as Element;
+                const scripts = clonedDiv.querySelectorAll('script, style, noscript');
+                scripts.forEach(script => script.remove());
+                
+                const text = clonedDiv.textContent?.trim() || '';
+                // Skip navigation, headers, scripts, and apply content filters
+                if (text.length > largestContent.length && 
+                    text.length > 100 && 
+                    text.length < 8000 &&
+                    !div.closest('nav') && 
+                    !div.closest('header') &&
+                    !div.closest('footer') &&
+                    !div.closest('script') &&
+                    !div.closest('style') &&
+                    !text.includes('function(') &&
+                    !text.includes('setTimeout') &&
+                    !text.includes('fbq') &&
+                    !text.includes('gtag') &&
+                    !text.includes('.addEventListener') &&
+                    !text.includes('querySelector') &&
+                    !text.match(/^[\{\}\(\);,\s]*$/) && // Not just punctuation
+                    text.split(' ').length > 10) { // Must have meaningful word count
+                  largestContent = text;
+                }
+              }
+              
+              if (largestContent) {
+                description = largestContent;
               }
             }
             
-            if (largestContent) {
-              description = largestContent;
+            // Final cleanup of description
+            if (description) {
+              description = description
+                .replace(/\s+/g, ' ') // Normalize whitespace first
+                .replace(/Book Now|Select Time|Choose Date|Powered by/gi, '') // Remove common booking text
+                .replace(/setTimeout\([^)]*\)[^;]*;?/gi, '') // Remove setTimeout calls
+                .replace(/function\s*\([^)]*\)[^}]*\}/gi, '') // Remove function definitions
+                .replace(/\{[^}]*\}/g, '') // Remove object/CSS blocks
+                .replace(/fbq\([^)]*\)[^;]*;?/gi, '') // Remove Facebook tracking
+                .replace(/gtag\([^)]*\)[^;]*;?/gi, '') // Remove Google tracking
+                .replace(/\.themed_button[^}]*\}/gi, '') // Remove CSS rules
+                .replace(/\$\d+\s*\+\s*Tax[^a-zA-Z]*/gi, '') // Remove duplicate pricing
+                .replace(/\b\d{1,2}:\d{2}\s*(AM|PM)\b/gi, '') // Remove time slots from description
+                .replace(/Choose from \d+ available spots?/gi, '') // Remove slot selection text
+                .replace(/\b(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),?\s*[A-Za-z]+ \d{1,2},? \d{4}/gi, '') // Remove dates from description
+                .split(/[.!]\s+/) // Split into sentences
+                .filter(sentence => 
+                  sentence.length > 10 && 
+                  !sentence.includes('function') &&
+                  !sentence.includes('fbq') &&
+                  !sentence.includes('gtag') &&
+                  sentence.split(' ').length > 2)
+                .join('. ') // Rejoin sentences
+                .replace(/\s+/g, ' ') // Final whitespace cleanup
+                .trim();
+              
+              // If description is still mostly code or very short, clear it
+              if (description.length < 30 || 
+                  description.includes('function') || 
+                  description.includes('setTimeout') ||
+                  description.includes('{') ||
+                  description.split(' ').length < 8) {
+                description = 'Beautiful photography session available for booking.';
+              }
             }
-          }
           
-          // Final cleanup of description
-          if (description) {
-            description = description
-              .replace(/\s+/g, ' ') // Normalize whitespace first
-              .replace(/Book Now|Select Time|Choose Date|Powered by/gi, '') // Remove common booking text
-              .replace(/setTimeout\([^)]*\)[^;]*;?/gi, '') // Remove setTimeout calls
-              .replace(/function\s*\([^)]*\)[^}]*\}/gi, '') // Remove function definitions
-              .replace(/\{[^}]*\}/g, '') // Remove object/CSS blocks
-              .replace(/fbq\([^)]*\)[^;]*;?/gi, '') // Remove Facebook tracking
-              .replace(/gtag\([^)]*\)[^;]*;?/gi, '') // Remove Google tracking
-              .replace(/\.themed_button[^}]*\}/gi, '') // Remove CSS rules
-              .replace(/\$\d+\s*\+\s*Tax[^a-zA-Z]*/gi, '') // Remove duplicate pricing
-              .replace(/\b\d{1,2}:\d{2}\s*(AM|PM)\b/gi, '') // Remove time slots from description
-              .replace(/Choose from \d+ available spots?/gi, '') // Remove slot selection text
-              .replace(/\b(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),?\s*[A-Za-z]+ \d{1,2},? \d{4}/gi, '') // Remove dates from description
-              .split(/[.!]\s+/) // Split into sentences
-              .filter(sentence => 
-                sentence.length > 10 && 
-                !sentence.includes('function') &&
-                !sentence.includes('fbq') &&
-                !sentence.includes('gtag') &&
-                sentence.split(' ').length > 2)
-              .join('. ') // Rejoin sentences
-              .replace(/\s+/g, ' ') // Final whitespace cleanup
-              .trim();
-            
-            // If description is still mostly code or very short, clear it
-            if (description.length < 30 || 
-                description.includes('function') || 
-                description.includes('setTimeout') ||
-                description.includes('{') ||
-                description.split(' ').length < 8) {
-              description = 'Beautiful photography session available for booking.';
-            }
-          }
-        
           // Extract price
           let price = 'Contact for pricing';
           const priceElements = document.querySelectorAll('*');
-          for (const element of Array.from(priceElements)) {
+                     for (const element of Array.from(priceElements)) {
             const text = element.textContent || '';
             const priceMatch = text.match(/\$\d+(?:\.\d{2})?(?:\s*\+\s*Tax)?/);
             if (priceMatch && element.children.length === 0) { // Only leaf nodes
@@ -249,168 +250,327 @@ export async function POST(request: NextRequest) {
             }
           }
           
-          // Extract date
-          let date = '';
-          const dateElements = document.querySelectorAll('h3, .date, [class*="date"]');
-          for (const element of Array.from(dateElements)) {
+                     // Extract date
+           let date = '';
+           const dateElements = document.querySelectorAll('h3, .date, [class*="date"]');
+           for (const element of Array.from(dateElements)) {
             const text = element.textContent?.trim() || '';
             if (text.match(/(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)/i) ||
-                text.match(/\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2},?\s+\d{4}/i) ||
-                text.match(/\d{1,2}\/\d{1,2}\/\d{4}/)) {
+                text.match(/\d{1,2}\/\d{1,2}\/\d{4}/) ||
+                text.match(/(January|February|March|April|May|June|July|August|September|October|November|December)/i)) {
               date = text;
               break;
             }
           }
           
-          // Extract location
-          let location = '';
-          const locationElements = document.querySelectorAll('[class*="location"], [class*="address"], .venue');
-          for (const element of Array.from(locationElements)) {
-            const text = element.textContent?.trim() || '';
-            if (text && text.length > 5 && text.length < 200 && 
-                !text.match(/^\d+:\d+/) && // Not a time
-                !text.match(/^\$\d+/) && // Not a price
-                (text.includes(',') || text.includes('Street') || text.includes('Ave') || text.includes('Rd') || text.includes('Blvd'))) {
-              location = text;
-              break;
+                     // Extract location
+           let location = '';
+           
+           // First try to find address in specific location-related elements
+           const locationSelectors = ['.location', '.address', '[class*="location"]', '[class*="address"]'];
+           for (const selector of locationSelectors) {
+             const element = document.querySelector(selector);
+             if (element) {
+               const text = element.textContent?.trim();
+               if (text && text.length < 200) { // Reasonable address length
+                 location = text;
+                 break;
+               }
+             }
+           }
+           
+           // If not found, look for address pattern in the DOM more carefully
+           if (!location) {
+             const addressRegex = /\d+\s+[A-Za-z0-9\s]+(?:St|Street|Ave|Avenue|Rd|Road|Dr|Drive|Ln|Lane|Blvd|Boulevard|Hwy|Highway|Pkwy|Parkway|Ct|Court|Pl|Place|Way|Circle|Cir)[^,]*,\s*[A-Za-z\s]+,?\s*[A-Z]{2}\s*\d{5}/i;
+             
+             // Look through all text nodes for a clean address
+             const walker = document.createTreeWalker(
+               document.body,
+               NodeFilter.SHOW_TEXT
+             );
+             
+             let node;
+             while (node = walker.nextNode()) {
+               const text = node.textContent || '';
+               const addressMatch = text.match(addressRegex);
+               if (addressMatch && addressMatch[0].length < 100) { // Reasonable address length
+                 location = addressMatch[0].trim();
+                 break;
+               }
+             }
+           }
+           
+           // Fallback: look for any address-like pattern in shorter text chunks
+           if (!location) {
+             const allElements = document.querySelectorAll('div, p, span');
+             for (const element of Array.from(allElements)) {
+               const text = element.textContent?.trim() || '';
+               if (text.length > 10 && text.length < 100) { // Reasonable length
+                 const addressMatch = text.match(/\d+.*?(?:Hwy|Highway|St|Street|Ave|Avenue|Rd|Road|Dr|Drive).*?[A-Z]{2}\s*\d{5}/i);
+                 if (addressMatch) {
+                   location = addressMatch[0].trim();
+                   break;
+                 }
+               }
+             }
+           }
+          
+                     // Extract time slots with booking links
+           const timeSlots: Array<{time: string, bookingUrl?: string}> = [];
+           const timeButtons = document.querySelectorAll('button, .time-slot, [class*="time"], a[href*="time"], a[href*="book"]');
+           Array.from(timeButtons).forEach(button => {
+             const text = button.textContent?.trim() || '';
+             const timeMatch = text.match(/\d{1,2}:\d{2}\s*(AM|PM)/i);
+             if (timeMatch) {
+               let bookingUrl = '';
+               
+               // Try to find booking URL from the element or its parent
+               if (button.tagName === 'A') {
+                 bookingUrl = (button as HTMLAnchorElement).href;
+               } else if (button.tagName === 'BUTTON') {
+                 // Look for onclick handlers or data attributes
+                 const onclick = button.getAttribute('onclick') || '';
+                 const dataUrl = button.getAttribute('data-url') || button.getAttribute('data-href') || '';
+                 
+                 if (dataUrl) {
+                   bookingUrl = dataUrl;
+                 } else if (onclick.includes('window.location') || onclick.includes('location.href')) {
+                   const urlMatch = onclick.match(/['"`](https?:\/\/[^'"`]+)['"`]/);
+                   if (urlMatch) {
+                     bookingUrl = urlMatch[1];
+                   }
+                 }
+                 
+                 // Check parent elements for links
+                 let parent = button.parentElement;
+                 while (parent && !bookingUrl) {
+                   if (parent.tagName === 'A') {
+                     bookingUrl = (parent as HTMLAnchorElement).href;
+                     break;
+                   }
+                   parent = parent.parentElement;
+                 }
+               }
+               
+               // If no specific booking URL found, use the main session URL with time parameter
+               if (!bookingUrl) {
+                 bookingUrl = `${window.location.href}?time=${encodeURIComponent(timeMatch[0])}`;
+               }
+               
+               timeSlots.push({
+                 time: timeMatch[0],
+                 bookingUrl: bookingUrl
+               });
+             }
+           });
+          
+          // Extract images
+          const images: string[] = [];
+          
+          // First try meta tags for the main image
+          const metaImage = document.querySelector('meta[name="image"], meta[property="og:image"]');
+          if (metaImage) {
+            const imageUrl = metaImage.getAttribute('content');
+            if (imageUrl && !isLogoOrBrandingImage(imageUrl)) {
+              images.push(imageUrl);
             }
           }
           
-          // Extract time slots
-          const timeSlots: Array<{time: string, bookingUrl?: string}> = [];
-          const timeElements = document.querySelectorAll('button, .time-slot, [class*="time"]');
-          for (const element of Array.from(timeElements)) {
-            const text = element.textContent?.trim() || '';
-            const timeMatch = text.match(/\b\d{1,2}:\d{2}\s*(AM|PM)\b/i);
-            if (timeMatch) {
-              const bookingUrl = element.getAttribute('href') || 
-                               element.closest('a')?.getAttribute('href') || 
-                               undefined;
-              timeSlots.push({
-                time: timeMatch[0],
-                bookingUrl: bookingUrl || undefined
-              });
-            }
-          }
-          
-          // Extract images with improved filtering
+          // Function to check if an image is likely a logo or branding
           function isLogoOrBrandingImage(imageUrl: string): boolean {
             const logoKeywords = [
-              'logo', 'brand', 'watermark', 'signature', 'icon', 'favicon',
-              'header', 'footer', 'nav', 'menu', 'button', 'arrow', 'chevron',
-              'social', 'facebook', 'instagram', 'twitter', 'linkedin',
-              'powered-by', 'badge', 'seal', 'certification'
+              'logo', 'brand', 'watermark', 'signature', 'stamp', 'copyright',
+              'header', 'nav', 'menu', 'icon', 'favicon', 'badge', 'emblem',
+              'photographer', 'photography', 'studio', 'company', 'business',
+              'moments', 'candice', 'jones', 'candi', 'by', 'branding'
             ];
             
             const urlLower = imageUrl.toLowerCase();
-            return logoKeywords.some(keyword => urlLower.includes(keyword));
-          }
-          
-          function isSmallImage(img: HTMLImageElement): boolean {
-            // Check actual dimensions
-            if (img.naturalWidth && img.naturalHeight) {
-              return img.naturalWidth < 200 || img.naturalHeight < 200;
+            
+            // Check URL for logo-related keywords
+            if (logoKeywords.some(keyword => urlLower.includes(keyword))) {
+              return true;
             }
             
-            // Check CSS dimensions
-            const computedStyle = window.getComputedStyle(img);
-            const width = parseInt(computedStyle.width) || 0;
-            const height = parseInt(computedStyle.height) || 0;
+            // Check for small image size indicators in filename (common for logos)
+            const sizePatterns = [
+              /-sm\./,     // -sm.jpg
+              /-small\./,  // -small.png
+              /-xs\./,     // -xs.jpg
+              /-thumb\./,  // -thumb.png
+              /-icon\./,   // -icon.svg
+              /-md\./,     // -md.png (medium size, often used for logos)
+              /-avatar\./  // -avatar.jpg
+            ];
             
-            if (width > 0 && height > 0) {
-              return width < 200 || height < 200;
+            if (sizePatterns.some(pattern => pattern.test(urlLower))) {
+              return true;
+            }
+            
+            // Check for very small dimensions in filename (common for logos)
+            if (urlLower.match(/\d+x\d+/) && urlLower.match(/([1-9]\d{0,2}x[1-9]\d{0,2})/)) {
+              const match = urlLower.match(/(\d+)x(\d+)/);
+              if (match) {
+                const width = parseInt(match[1]);
+                const height = parseInt(match[2]);
+                // Consider images smaller than 300x300 as potential logos
+                if (width < 300 && height < 300) {
+                  return true;
+                }
+              }
+            }
+            
+            // Check for CDN patterns that often serve profile/logo images
+            const cdnLogoPatterns = [
+              /digitaloceanspaces\.com\/\d+\/[a-f0-9-]+-md\./,  // DigitalOcean spaces with -md suffix
+              /digitaloceanspaces\.com\/\d+\/[a-f0-9-]+-sm\./,  // DigitalOcean spaces with -sm suffix
+              /digitaloceanspaces\.com\/\d+\/[a-f0-9-]+-thumb\./, // DigitalOcean spaces with -thumb suffix
+              /amazonaws\.com\/.*profile/,                        // AWS S3 profile images
+              /cloudfront\.net\/.*logo/,                         // CloudFront logo images
+              /gravatar\.com/,                                   // Gravatar profile images
+              /\/avatars?\//,                                    // Avatar directories
+              /\/profiles?\//,                                   // Profile directories
+              /\/logos?\//                                       // Logo directories
+            ];
+            
+            if (cdnLogoPatterns.some(pattern => pattern.test(urlLower))) {
+              return true;
+            }
+            
+            // Check for common logo file patterns
+            if (urlLower.includes('signature') || 
+                urlLower.includes('byline') ||
+                urlLower.includes('branding') ||
+                urlLower.includes('profile') ||
+                urlLower.includes('avatar') ||
+                urlLower.match(/\b[a-z]+\s+(by|photography|photo|studio|moments)\b/)) {
+              return true;
+            }
+            
+            // Check for file naming patterns that suggest logos/branding
+            const logoFilePatterns = [
+              /[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}-(sm|md|thumb|small|icon)\./,  // UUID with size suffix
+              /^[a-f0-9]{32}-(sm|md|thumb)\./,  // MD5 hash with size suffix
+              /\/(sm|md|thumb|small|icon)_/,    // Size prefix in path
+            ];
+            
+            if (logoFilePatterns.some(pattern => pattern.test(urlLower))) {
+              return true;
             }
             
             return false;
           }
           
+          // Function to check if an element is likely a logo container
           function isLogoContainer(element: Element): boolean {
-            const logoClasses = ['logo', 'brand', 'header', 'nav', 'menu', 'footer'];
-            const elementClasses = element.className.toLowerCase();
-            const parentClasses = element.parentElement?.className.toLowerCase() || '';
+            const logoClasses = [
+              'logo', 'brand', 'header', 'nav', 'navigation', 'menu',
+              'photographer', 'studio', 'watermark', 'signature', 'branding',
+              'byline', 'moments', 'candice', 'candi', 'jones', 'footer'
+            ];
             
-            return logoClasses.some(logoClass => 
-              elementClasses.includes(logoClass) || parentClasses.includes(logoClass)
-            );
+            const className = element.className.toLowerCase();
+            const id = element.id.toLowerCase();
+            const parent = element.parentElement;
+            const parentClass = parent ? parent.className.toLowerCase() : '';
+            
+            // Check element classes and IDs
+            if (logoClasses.some(logoClass => 
+              className.includes(logoClass) || 
+              id.includes(logoClass) ||
+              parentClass.includes(logoClass)
+            )) {
+              return true;
+            }
+            
+            // Check text content for photography business names
+            const textContent = element.textContent?.toLowerCase() || '';
+            if (textContent.includes('photography') || 
+                textContent.includes('photographer') ||
+                textContent.includes('moments') ||
+                textContent.includes('candice') ||
+                textContent.includes('candi') ||
+                textContent.includes('jones') ||
+                textContent.match(/\b[a-z]+\s+by\s+[a-z]+/i)) {
+              return true;
+            }
+            
+            return false;
           }
           
-          const images: string[] = [];
-          const imageElements = document.querySelectorAll('img');
-          
-          for (const img of Array.from(imageElements)) {
-            const src = img.src || img.getAttribute('data-src') || img.getAttribute('data-lazy-src');
-            if (!src) continue;
-            
-            // Skip if it's a logo or branding image
-            if (isLogoOrBrandingImage(src)) continue;
+          // Then look for carousel or gallery images
+          const imageElements = document.querySelectorAll('img, [style*="background-image"]');
+          Array.from(imageElements).forEach(element => {
+            let imageUrl = '';
             
             // Skip if it's in a logo container
-            if (isLogoContainer(img)) continue;
-            
-            // Skip very small images (likely icons or logos)
-            if (isSmallImage(img)) continue;
-            
-            // Skip data URLs and SVGs (usually icons)
-            if (src.startsWith('data:') || src.includes('.svg')) continue;
-            
-            // Skip images with logo-related alt text
-            const altText = img.alt?.toLowerCase() || '';
-            if (altText.includes('logo') || altText.includes('icon') || altText.includes('brand')) continue;
-            
-            // Only include images that are likely to be content images
-            if (src.startsWith('http') && !images.includes(src)) {
-              images.push(src);
+            if (isLogoContainer(element)) {
+              return;
             }
-          }
+            
+            if (element.tagName === 'IMG') {
+              const img = element as HTMLImageElement;
+              imageUrl = img.src;
+              
+              // Additional checks for img elements
+              const alt = img.alt?.toLowerCase() || '';
+              const title = img.title?.toLowerCase() || '';
+              
+              // Skip images with logo-related alt text or titles
+              if (alt.includes('logo') || alt.includes('photographer') || 
+                  title.includes('logo') || title.includes('photographer')) {
+                return;
+              }
+              
+              // Skip very small images (likely logos)
+              if (img.width && img.height && img.width < 200 && img.height < 200) {
+                return;
+              }
+              
+            } else {
+              const style = (element as HTMLElement).style.backgroundImage;
+              const urlMatch = style.match(/url\(["']?(.*?)["']?\)/);
+              if (urlMatch) {
+                imageUrl = urlMatch[1];
+              }
+            }
+            
+            if (imageUrl && 
+                imageUrl.startsWith('http') && 
+                !isLogoOrBrandingImage(imageUrl) &&
+                !images.includes(imageUrl)) {
+              images.push(imageUrl);
+            }
+          });
           
           return {
             title,
-            description,
+            description: description || 'Beautiful photography session available for booking.',
             price,
-            date,
-            location,
-            timeSlots: timeSlots.slice(0, 10), // Limit to 10 time slots
-            images: images.slice(0, 8) // Limit to 8 images
+            date: date || 'Contact for available dates',
+            location: location || 'Location details available upon booking',
+            timeSlots: timeSlots.slice(0, 8), // Limit to 8 time slots
+            images: images.slice(0, 5) // Limit to 5 images
           };
         });
         
-        // Generate enhanced email HTML and session content
-        const enhancedEmailHtml = createEmailTemplate(
-          extractedData, 
-          url, 
-          primaryColor, 
-          secondaryColor, 
-          headingFont, 
-          paragraphFont, 
-          headingFontSize, 
-          paragraphFontSize, 
-          headingTextColor, 
-          paragraphTextColor
-        );
+        // Create enhanced email HTML from extracted data
+        const enhancedEmailHtml = createEmailTemplate(extractedData, url, primaryColor, secondaryColor, headingFont, paragraphFont, headingFontSize, paragraphFontSize, headingTextColor, paragraphTextColor);
+                  const sessionContent = createSessionContent(extractedData, url, primaryColor, secondaryColor, headingFont, paragraphFont, headingFontSize, paragraphFontSize, headingTextColor, paragraphTextColor);
         
-        const sessionContent = createSessionContent(
-          extractedData, 
-          url, 
-          primaryColor, 
-          secondaryColor, 
-          headingFont, 
-          paragraphFont, 
-          headingFontSize, 
-          paragraphFontSize, 
-          headingTextColor, 
-          paragraphTextColor
-        );
+        // Get traditional HTML for fallback
+        const fullHtml = await page.content();
+        const pageTitle = await page.title();
         
-        const rawHtmlWithButton = enhancedEmailHtml.replace(
-          '</body>',
-          `<div style="text-align: center; margin: 30px 0;">
+        // Create raw HTML with button
+        const rawHtmlWithButton = fullHtml.replace(
+          /<\/body>/i,
+          `<div style="text-align: center; margin: 30px 0; padding: 20px;">
             <a href="${url}" style="display: inline-block; background-color: #7851a9; color: white; padding: 15px 30px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 16px;">Book Now</a>
           </div></body>`
         );
         
-        await page.close();
-        
-        return {
+        sessions.push({
           url,
           title: extractedData.title,
           description: extractedData.description,
@@ -423,11 +583,12 @@ export async function POST(request: NextRequest) {
           sessionContent,
           rawHtmlWithButton,
           firstImage: extractedData.images[0] || null,
-        };
+        });
         
+        await page.close();
       } catch (error) {
         console.error(`Error processing URL ${url}:`, error);
-        return {
+        sessions.push({
           url,
           title: `Error loading ${url}`,
           description: '',
@@ -441,12 +602,9 @@ export async function POST(request: NextRequest) {
           rawHtmlWithButton: '',
           firstImage: null,
           error: (error as Error).message,
-        };
+        });
       }
-    });
-    
-    // Wait for all URLs to be processed in parallel
-    const sessions = await Promise.all(sessionPromises);
+    }
     
     // Generate response
     let emailHtml = "";
