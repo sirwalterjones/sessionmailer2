@@ -509,42 +509,74 @@ export default function Dashboard({
   // Wrapper functions to track changes
   const handlePrimaryColorChange = (color: string) => {
     setPrimaryColor(color);
-    if (isGenerated) setHasUnsavedChanges(true);
+    if (isGenerated) {
+      setHasUnsavedChanges(true);
+      // Immediate preview update with new color
+      updatePreviewWithHeroImages();
+    }
   };
 
   const handleSecondaryColorChange = (color: string) => {
     setSecondaryColor(color);
-    if (isGenerated) setHasUnsavedChanges(true);
+    if (isGenerated) {
+      setHasUnsavedChanges(true);
+      // Immediate preview update with new color
+      updatePreviewWithHeroImages();
+    }
   };
 
   const handleHeadingTextColorChange = (color: string) => {
     setHeadingTextColor(color);
-    if (isGenerated) setHasUnsavedChanges(true);
+    if (isGenerated) {
+      setHasUnsavedChanges(true);
+      // Immediate preview update with new color
+      updatePreviewWithHeroImages();
+    }
   };
 
   const handleParagraphTextColorChange = (color: string) => {
     setParagraphTextColor(color);
-    if (isGenerated) setHasUnsavedChanges(true);
+    if (isGenerated) {
+      setHasUnsavedChanges(true);
+      // Immediate preview update with new color
+      updatePreviewWithHeroImages();
+    }
   };
 
   const handleHeadingFontChange = (font: string) => {
     setHeadingFont(font);
-    if (isGenerated) setHasUnsavedChanges(true);
+    if (isGenerated) {
+      setHasUnsavedChanges(true);
+      // Immediate preview update with new font
+      updatePreviewWithHeroImages();
+    }
   };
 
   const handleParagraphFontChange = (font: string) => {
     setParagraphFont(font);
-    if (isGenerated) setHasUnsavedChanges(true);
+    if (isGenerated) {
+      setHasUnsavedChanges(true);
+      // Immediate preview update with new font
+      updatePreviewWithHeroImages();
+    }
   };
 
   const handleHeadingFontSizeChange = (size: number) => {
     setHeadingFontSize(size);
-    if (isGenerated) setHasUnsavedChanges(true);
+    if (isGenerated) {
+      setHasUnsavedChanges(true);
+      // Immediate preview update with new font size
+      updatePreviewWithHeroImages();
+    }
   };
 
   const handleParagraphFontSizeChange = (size: number) => {
     setParagraphFontSize(size);
-    if (isGenerated) setHasUnsavedChanges(true);
+    if (isGenerated) {
+      setHasUnsavedChanges(true);
+      // Immediate preview update with new font size
+      updatePreviewWithHeroImages();
+    }
   };
 
   const handleHeroImageChange = async (imageUrl: string, sessionUrl?: string) => {
