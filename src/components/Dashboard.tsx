@@ -580,7 +580,12 @@ export default function Dashboard({
   };
 
   const handleHeroImageChange = async (imageUrl: string, sessionUrl?: string) => {
+    console.log('=== DEBUG: HERO IMAGE CHANGE START ===');
     console.log('DEBUG: Hero image change requested:', { imageUrl, sessionUrl });
+    console.log('DEBUG: Current sessionHeroImages:', sessionHeroImages);
+    console.log('DEBUG: Sessions available:', sessions.map(s => ({ url: s.url, title: s.title })));
+    console.log('DEBUG: emailHtml exists:', !!emailHtml);
+    console.log('DEBUG: capturedHtml exists:', !!capturedHtml);
     
     // Set loading state for hero image update
     setIsHeroImageUpdating(true);
@@ -591,17 +596,18 @@ export default function Dashboard({
       // Set hero image for specific session
       updatedHeroImages = { ...sessionHeroImages, [sessionUrl]: imageUrl };
       setSessionHeroImages(updatedHeroImages);
-      console.log('DEBUG: Updated sessionHeroImages:', updatedHeroImages);
+      console.log('DEBUG: Updated sessionHeroImages for specific session:', updatedHeroImages);
     } else {
       // For single session or global, use the first session URL
       const firstSessionUrl = sessions[0]?.url;
       if (firstSessionUrl) {
         updatedHeroImages = { ...sessionHeroImages, [firstSessionUrl]: imageUrl };
         setSessionHeroImages(updatedHeroImages);
-        console.log('DEBUG: Updated sessionHeroImages (single session):', updatedHeroImages);
+        console.log('DEBUG: Updated sessionHeroImages for first session:', updatedHeroImages);
       } else {
         console.warn('DEBUG: No session URL available for hero image change');
         setIsHeroImageUpdating(false);
+        console.log('=== DEBUG: HERO IMAGE CHANGE ABORTED ===');
         return;
       }
     }
@@ -612,9 +618,14 @@ export default function Dashboard({
     // OPTIMIZATION: Immediate synchronous update instead of timeout
     console.log('DEBUG: Triggering immediate preview update...');
     try {
+      console.log('DEBUG: Calling updatePreviewWithHeroImages with:', updatedHeroImages);
       await updatePreviewWithHeroImages(updatedHeroImages);
+      console.log('DEBUG: updatePreviewWithHeroImages completed successfully');
+    } catch (error) {
+      console.error('DEBUG: Error in updatePreviewWithHeroImages:', error);
     } finally {
       setIsHeroImageUpdating(false);
+      console.log('=== DEBUG: HERO IMAGE CHANGE END ===');
     }
   };
 
@@ -884,27 +895,23 @@ export default function Dashboard({
           const originalImage = session.firstImage;
           
           if (customHeroImage && originalImage && customHeroImage !== originalImage) {
-            // More precise replacement - look for hero/header images specifically
+            console.log(`DEBUG: Replacing hero image for session ${session.url}`);
+            console.log(`DEBUG: Original: ${originalImage}`);
+            console.log(`DEBUG: New: ${customHeroImage}`);
+            
+            // Escape special regex characters in the original image URL
             const originalImageEscaped = originalImage.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             
-            // Replace hero images (typically the first/main image in templates)
-            const heroPatterns = [
-              new RegExp(`(<img[^>]*class="[^"]*hero[^"]*"[^>]*src=")${originalImageEscaped}("`, 'gi'),
-              new RegExp(`(<img[^>]*src=")${originalImageEscaped}("[^>]*class="[^"]*hero[^"]*")`, 'gi'),
-              new RegExp(`(<img[^>]*class="[^"]*header[^"]*"[^>]*src=")${originalImageEscaped}("`, 'gi'),
-              new RegExp(`(<img[^>]*src=")${originalImageEscaped}("[^>]*class="[^"]*header[^"]*")`, 'gi'),
-              // Fallback: replace the first occurrence of the image
-              new RegExp(`(<img[^>]*src=")${originalImageEscaped}("`, 'i')
-            ];
+            // Simple but effective: Replace ALL occurrences of the original image URL
+            // This will catch hero images regardless of their HTML structure
+            const globalReplacePattern = new RegExp(originalImageEscaped, 'g');
+            const beforeReplace = updatedHtml;
+            updatedHtml = updatedHtml.replace(globalReplacePattern, customHeroImage);
             
-            for (const pattern of heroPatterns) {
-              const beforeReplace = updatedHtml;
-              updatedHtml = updatedHtml.replace(pattern, `$1${customHeroImage}$2`);
-              if (updatedHtml !== beforeReplace) {
-                // Successfully replaced, break to avoid multiple replacements
-                console.log('DEBUG: Successfully replaced hero image for session:', session.url);
-                break;
-              }
+            if (updatedHtml !== beforeReplace) {
+              console.log(`DEBUG: Successfully replaced ${(beforeReplace.match(globalReplacePattern) || []).length} instance(s) of hero image for session:`, session.url);
+            } else {
+              console.warn(`DEBUG: No replacements made for session:`, session.url);
             }
           }
         });
