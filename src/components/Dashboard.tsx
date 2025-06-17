@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   Card,
@@ -542,29 +542,15 @@ export default function Dashboard({
   };
 
   // Extract all available images from sessions - simplified to always show all images
-  const getAllAvailableImages = () => {
+  const getAllAvailableImages = useMemo(() => {
     const allImages: Array<{url: string, source: string, sessionUrl: string, sessionTitle: string, isCurrentHero: boolean, isOriginalHero: boolean}> = [];
-    
-    // Debug: Log the sessions data to understand what we're working with
-    console.log('DEBUG: Sessions data:', sessions);
-    console.log('DEBUG: Number of sessions:', sessions.length);
     
     sessions.forEach((session, sessionIndex) => {
       const sessionTitle = session.title || `Session ${sessionIndex + 1}`;
       const currentHeroForSession = sessionHeroImages[session.url];
       
-      console.log(`DEBUG: Session ${sessionIndex + 1}:`, {
-        title: session.title,
-        url: session.url,
-        firstImage: session.firstImage,
-        images: session.images,
-        imagesType: typeof session.images,
-        imagesLength: session.images?.length
-      });
-      
       // Add ALL images from the images array - this ensures we get all 5 images
       if (session.images && Array.isArray(session.images)) {
-        console.log(`DEBUG: Processing ${session.images.length} images for session ${sessionIndex + 1}`);
         session.images.forEach((img: string, imgIndex: number) => {
           if (img) {
             const isCurrentHero = currentHeroForSession === img || (!currentHeroForSession && img === session.firstImage);
@@ -578,12 +564,9 @@ export default function Dashboard({
               isCurrentHero,
               isOriginalHero
             });
-            console.log(`DEBUG: Added image ${imgIndex + 1} for session ${sessionIndex + 1}:`, img, 'isOriginalHero:', isOriginalHero);
           }
         });
       } else {
-        console.log(`DEBUG: No images array or not an array for session ${sessionIndex + 1}:`, session.images);
-        
         // Fallback: if no images array but we have firstImage, add it
         if (session.firstImage) {
           const isCurrentHero = currentHeroForSession === session.firstImage || !currentHeroForSession;
@@ -595,12 +578,10 @@ export default function Dashboard({
             isCurrentHero,
             isOriginalHero: true
           });
-          console.log(`DEBUG: Added firstImage as fallback for session ${sessionIndex + 1}:`, session.firstImage);
         }
       }
       
       // ADDITIONAL FALLBACK: If we still don't have enough images, try to extract from other session properties
-      // Look for other potential image properties in the session object
       const seenUrls = new Set(allImages.map(img => img.url));
       const potentialImageProps = ['coverImage', 'image', 'heroImage', 'mainImage', 'featuredImage'];
       potentialImageProps.forEach((prop) => {
@@ -618,19 +599,12 @@ export default function Dashboard({
             isOriginalHero
           });
           seenUrls.add(sessionAny[prop]);
-          console.log(`DEBUG: Added additional image from ${prop} for session ${sessionIndex + 1}:`, sessionAny[prop]);
         }
       });
     });
     
-    console.log('DEBUG: Total images found:', allImages.length);
-    console.log('DEBUG: All images:', allImages);
-    console.log('DEBUG: Session hero images state:', sessionHeroImages);
-    console.log('DEBUG: Force update counter:', forceUpdate);
-    
     // Add fallback images if no images found at all
     if (allImages.length === 0) {
-      console.log('DEBUG: No images found, adding fallback images');
       allImages.push(
         {
           url: 'https://images.unsplash.com/photo-1606216794074-735e91aa2c92?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80',
@@ -651,8 +625,11 @@ export default function Dashboard({
       );
     }
     
+    // Debug log only once when the memo recalculates
+    console.log(`DEBUG: getAllAvailableImages recalculated - Found ${allImages.length} images`);
+    
     return allImages;
-  };
+  }, [sessions, sessionHeroImages, forceUpdate]);
 
   // Fast client-side styling update - only regenerates HTML if hero images changed
   const updatePreview = async () => {
@@ -1330,7 +1307,7 @@ export default function Dashboard({
                                 <div className="space-y-8">
                                   {sessions.map((session, sessionIndex) => {
                                     const sessionTitle = session.title || `Session ${sessionIndex + 1}`;
-                                    const sessionImages = getAllAvailableImages().filter(img => img.sessionUrl === session.url);
+                                    const sessionImages = getAllAvailableImages.filter((img: any) => img.sessionUrl === session.url);
                                     const currentHero = sessionHeroImages[session.url];
                                     
                                     return (
@@ -1347,7 +1324,7 @@ export default function Dashboard({
                                         </div>
                                         
                                         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3 gap-3" key={`session-${session.url}-${forceUpdate}`}>
-                                          {sessionImages.map((image, imgIndex) => (
+                                          {sessionImages.map((image: any, imgIndex: number) => (
                                             <div
                                               key={imgIndex}
                                               className={`relative group cursor-pointer rounded-xl overflow-hidden border-4 transition-all duration-300 ${
@@ -1397,7 +1374,7 @@ export default function Dashboard({
                               ) : (
                                 // Single session - use original layout
                                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4" key={`single-session-${forceUpdate}`}>
-                                  {getAllAvailableImages().map((image, index) => (
+                                  {getAllAvailableImages.map((image: any, index: number) => (
                                     <div
                                       key={index}
                                       className={`relative group cursor-pointer rounded-xl overflow-hidden border-4 transition-all duration-300 ${
