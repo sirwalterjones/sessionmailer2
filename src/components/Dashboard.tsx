@@ -577,15 +577,13 @@ export default function Dashboard({
     setHasUnsavedChanges(true);
     setForceUpdate(prev => prev + 1);
     
-    // Trigger preview update with the updated hero images state
-    setTimeout(async () => {
-      console.log('DEBUG: Triggering preview update with updated state...');
-      try {
-        await updatePreviewWithHeroImages(updatedHeroImages);
-      } finally {
-        setIsHeroImageUpdating(false);
-      }
-    }, 100);
+    // OPTIMIZATION: Immediate synchronous update instead of timeout
+    console.log('DEBUG: Triggering immediate preview update...');
+    try {
+      await updatePreviewWithHeroImages(updatedHeroImages);
+    } finally {
+      setIsHeroImageUpdating(false);
+    }
   };
 
   // State for available images
@@ -710,61 +708,9 @@ export default function Dashboard({
     
     setIsUpdating(true);
     try {
-      // Check if any hero images are customized (different from original)
-      const hasCustomHeroImages = Object.keys(currentHeroImages).length > 0;
-      console.log('DEBUG: hasCustomHeroImages:', hasCustomHeroImages);
-      console.log('DEBUG: sessions.length:', sessions.length);
-      
-      if (hasCustomHeroImages && sessions.length > 0) {
-        // Only regenerate HTML if we have sessions data already (avoid expensive re-extraction)
-        // Use the existing URL-based approach since the API expects URLs, not session objects
-        const sessionUrls = sessions.map(session => session.url);
-        
-        const response = await fetch('/api/enhanced-extract', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            urls: sessionUrls,
-            customization: {
-              primaryColor,
-              secondaryColor,
-              headingTextColor,
-              paragraphTextColor,
-              headingFont,
-              paragraphFont,
-              headingFontSize,
-              paragraphFontSize,
-              sessionHeroImages: currentHeroImages,
-            }
-          }),
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          console.log('DEBUG: API response received:', { success: data.success, hasEmailHtml: !!data.emailHtml, hasHtml: !!data.html });
-          if (data.success) {
-            // Handle different response formats
-            const updatedHtml = data.emailHtml || data.html;
-            if (updatedHtml) {
-              console.log('DEBUG: Updating preview with new HTML from API');
-              setEmailHtml(updatedHtml);
-              setCapturedHtml(updatedHtml);
-              setHasUnsavedChanges(false);
-              console.log('Hero image preview updated successfully via API');
-              return;
-            } else {
-              console.warn('DEBUG: API response successful but no HTML content found');
-            }
-          } else {
-            console.warn('DEBUG: API response not successful:', data);
-          }
-        } else {
-          console.warn('Preview update failed with status:', response.status);
-          // Fall through to client-side styling update
-        }
-      }
+      // OPTIMIZATION: Skip expensive API call for hero image changes
+      // Instead, do fast client-side image replacement only
+      console.log('DEBUG: Using fast client-side hero image replacement');
       
       // Get the current HTML content for style-only updates
       const currentHtml = emailHtml || capturedHtml;
@@ -924,6 +870,7 @@ export default function Dashboard({
               updatedHtml = updatedHtml.replace(pattern, `$1${customHeroImage}$2`);
               if (updatedHtml !== beforeReplace) {
                 // Successfully replaced, break to avoid multiple replacements
+                console.log('DEBUG: Successfully replaced hero image for session:', session.url);
                 break;
               }
             }
@@ -936,6 +883,7 @@ export default function Dashboard({
         
         // Clear the unsaved changes flag
         setHasUnsavedChanges(false);
+        console.log('DEBUG: Fast hero image update completed');
     } catch (error) {
       console.error("Error updating preview:", error);
     } finally {
@@ -1566,7 +1514,7 @@ export default function Dashboard({
                                             <Button
                                               variant="outline"
                                               size="sm"
-                                              onClick={() => {
+                                              onClick={async () => {
                                                 console.log('DEBUG: Reset button clicked for session:', sessionUrl);
                                                 const session = sessions.find(s => s.url === sessionUrl);
                                                 console.log('DEBUG: Found session:', session);
@@ -1585,15 +1533,13 @@ export default function Dashboard({
                                                 setHasUnsavedChanges(true);
                                                 setForceUpdate(prev => prev + 1);
                                                 
-                                                // Trigger preview update after reset with updated state
-                                                setTimeout(async () => {
-                                                  console.log('DEBUG: Triggering preview update after reset...');
-                                                  try {
-                                                    await updatePreviewWithHeroImages(newImages);
-                                                  } finally {
-                                                    setIsHeroImageUpdating(false);
-                                                  }
-                                                }, 100);
+                                                // OPTIMIZATION: Immediate update after reset
+                                                console.log('DEBUG: Triggering immediate preview update after reset...');
+                                                try {
+                                                  await updatePreviewWithHeroImages(newImages);
+                                                } finally {
+                                                  setIsHeroImageUpdating(false);
+                                                }
                                               }}
                                               className="mt-2 text-xs border-blue-300 text-blue-600 hover:bg-blue-100"
                                             >
