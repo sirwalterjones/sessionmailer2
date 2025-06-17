@@ -34,6 +34,7 @@ import {
   Link,
   Wand2,
   Image,
+  Share2,
 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
@@ -70,6 +71,11 @@ export default function Dashboard({
   const [emailHtml, setEmailHtml] = useState("");
   const [htmlCopied, setHtmlCopied] = useState(false);
   const [rawHtmlCopied, setRawHtmlCopied] = useState(false);
+  
+  // Share functionality state
+  const [isSharing, setIsSharing] = useState(false);
+  const [shareUrl, setShareUrl] = useState("");
+  const [shareError, setShareError] = useState("");
 
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isGeneratorCollapsed, setIsGeneratorCollapsed] = useState(false);
@@ -939,6 +945,68 @@ export default function Dashboard({
   // The initial generation includes all customization parameters
   // Users can manually regenerate if they want to see changes
 
+  const handleShare = async () => {
+    if (!isGenerated || !emailHtml || sessions.length === 0) {
+      setError("Please generate an email first before sharing");
+      return;
+    }
+
+    try {
+      setIsSharing(true);
+      setShareError("");
+
+      // Prepare the data to share
+      const shareData = {
+        sessions: sessions.map(session => ({
+          url: session.url,
+          title: session.title,
+          html: session.html,
+          firstImage: session.firstImage,
+          images: session.images || []
+        })),
+        emailHtml,
+        metadata: {
+          primaryColor,
+          secondaryColor,
+          headingTextColor,
+          paragraphTextColor,
+          headingFont,
+          paragraphFont,
+          headingFontSize,
+          paragraphFontSize,
+        }
+      };
+
+      const response = await fetch('/api/share', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(shareData),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to create share link');
+      }
+
+      // Copy the share URL to clipboard
+      await navigator.clipboard.writeText(data.shareUrl);
+      setShareUrl(data.shareUrl);
+      
+      // Show success message
+      alert(`Share link copied to clipboard!\n\nYour email template is now shareable at:\n${data.shareUrl}\n\nThis link will expire in 30 days.`);
+
+    } catch (error) {
+      console.error('Error creating share link:', error);
+      setShareError(error instanceof Error ? error.message : 'Failed to create share link');
+      setError("Failed to create share link. Please try again.");
+    } finally {
+      setIsSharing(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
       {/* Animated background elements */}
@@ -1104,7 +1172,7 @@ export default function Dashboard({
                         </h3>
                       </div>
                       <p className="text-green-700 mb-4">Your beautiful email template is ready. Customize colors and fonts below, then copy the HTML.</p>
-                      <div className="flex justify-center">
+                      <div className="flex justify-center gap-4">
                         <Button
                           variant="outline"
                           className="gap-2 border-green-300 hover:bg-green-100 transition-all duration-300"
@@ -1112,6 +1180,15 @@ export default function Dashboard({
                         >
                           <Save className="h-4 w-4" />
                           Save Project
+                        </Button>
+                        
+                        <Button
+                          onClick={handleShare}
+                          disabled={isSharing}
+                          className="gap-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 border-0 text-white font-semibold shadow-lg transition-all duration-300"
+                        >
+                          <Share2 className={`h-4 w-4 ${isSharing ? 'animate-spin' : ''}`} />
+                          {isSharing ? "Creating..." : "Share Template"}
                         </Button>
                       </div>
                     </div>
@@ -1660,14 +1737,38 @@ export default function Dashboard({
                           </CardDescription>
                         </div>
                       </div>
-                      <Button
-                        onClick={handleCopyHtml}
-                        className="gap-2 sexy-button border-0 text-white font-semibold px-4 sm:px-6 py-2 sm:py-3 shadow-lg text-sm sm:text-base"
-                      >
-                        <Copy className="h-3 w-3 sm:h-4 sm:w-4" />
-                                                          <span className="hidden sm:inline">{htmlCopied ? "✅ Copied!" : "Copy"}</span>
-                        <span className="sm:hidden">{htmlCopied ? "✅" : "📋"}</span>
-                      </Button>
+                      <div className="flex items-center gap-3">
+                                              <div className="flex items-center gap-3">
+                        <Button
+                          onClick={handleCopyHtml}
+                          className="gap-2 sexy-button border-0 text-white font-semibold px-4 sm:px-6 py-2 sm:py-3 shadow-lg text-sm sm:text-base"
+                        >
+                          <Copy className="h-3 w-3 sm:h-4 sm:w-4" />
+                          <span className="hidden sm:inline">{htmlCopied ? "✅ Copied!" : "Copy"}</span>
+                          <span className="sm:hidden">{htmlCopied ? "✅" : "📋"}</span>
+                        </Button>
+                        
+                        <Button
+                          onClick={handleShare}
+                          disabled={isSharing}
+                          className="gap-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 border-0 text-white font-semibold px-4 sm:px-6 py-2 sm:py-3 shadow-lg text-sm sm:text-base transition-all duration-300"
+                        >
+                          <Share2 className={`h-3 w-3 sm:h-4 sm:w-4 ${isSharing ? 'animate-spin' : ''}`} />
+                          <span className="hidden sm:inline">{isSharing ? "Creating..." : "Share"}</span>
+                          <span className="sm:hidden">{isSharing ? "..." : "🔗"}</span>
+                        </Button>
+                      </div>
+                        
+                        <Button
+                          onClick={handleShare}
+                          disabled={isSharing}
+                          className="gap-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 border-0 text-white font-semibold px-4 sm:px-6 py-2 sm:py-3 shadow-lg text-sm sm:text-base transition-all duration-300"
+                        >
+                          <Share2 className={`h-3 w-3 sm:h-4 sm:w-4 ${isSharing ? 'animate-spin' : ''}`} />
+                          <span className="hidden sm:inline">{isSharing ? "Creating..." : "Share"}</span>
+                          <span className="sm:hidden">{isSharing ? "..." : "🔗"}</span>
+                        </Button>
+                      </div>
                     </div>
                   </CardHeader>
                   <CardContent className="p-0 overflow-hidden">
