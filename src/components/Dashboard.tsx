@@ -102,6 +102,7 @@ export default function Dashboard({
   
   // Hero image customization state - now per session
   const [sessionHeroImages, setSessionHeroImages] = useState<Record<string, string>>({});
+  const [forceUpdate, setForceUpdate] = useState(0);
   
   // Available Google Fonts
   const googleFonts = [
@@ -537,6 +538,7 @@ export default function Dashboard({
       }
     }
     setHasUnsavedChanges(true);
+    setForceUpdate(prev => prev + 1);
   };
 
   // Extract all available images from sessions - simplified to always show all images
@@ -623,6 +625,8 @@ export default function Dashboard({
     
     console.log('DEBUG: Total images found:', allImages.length);
     console.log('DEBUG: All images:', allImages);
+    console.log('DEBUG: Session hero images state:', sessionHeroImages);
+    console.log('DEBUG: Force update counter:', forceUpdate);
     
     // Add fallback images if no images found at all
     if (allImages.length === 0) {
@@ -1342,7 +1346,7 @@ export default function Dashboard({
                                           )}
                                         </div>
                                         
-                                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3 gap-3">
+                                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3 gap-3" key={`session-${session.url}-${forceUpdate}`}>
                                           {sessionImages.map((image, imgIndex) => (
                                             <div
                                               key={imgIndex}
@@ -1370,13 +1374,13 @@ export default function Dashboard({
                                                     </div>
                                                   </div>
                                                 )}
-                                                {image.isOriginalHero && !image.isCurrentHero && (
-                                                  <div className="absolute top-2 left-2">
-                                                    <div className="bg-green-500 text-white rounded-full px-2 py-1 text-xs font-medium">
-                                                      Default
-                                                    </div>
-                                                  </div>
-                                                )}
+                                                                                        {image.isOriginalHero && (
+                                          <div className="absolute top-2 left-2">
+                                            <div className="bg-green-500 text-white rounded-full px-2 py-1 text-xs font-medium">
+                                              Default
+                                            </div>
+                                          </div>
+                                        )}
                                               </div>
                                               <div className="p-3 bg-white">
                                                 <p className="text-xs text-gray-600 truncate" title={image.source}>
@@ -1392,7 +1396,7 @@ export default function Dashboard({
                                 </div>
                               ) : (
                                 // Single session - use original layout
-                                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
+                                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4" key={`single-session-${forceUpdate}`}>
                                   {getAllAvailableImages().map((image, index) => (
                                     <div
                                       key={index}
@@ -1420,7 +1424,7 @@ export default function Dashboard({
                                             </div>
                                           </div>
                                         )}
-                                        {image.isOriginalHero && !image.isCurrentHero && (
+                                        {image.isOriginalHero && (
                                           <div className="absolute top-2 left-2">
                                             <div className="bg-green-500 text-white rounded-full px-2 py-1 text-xs font-medium">
                                               Default
@@ -1469,10 +1473,11 @@ export default function Dashboard({
                                                 delete newImages[sessionUrl];
                                                 setSessionHeroImages(newImages);
                                                 setHasUnsavedChanges(true);
-                                                // Force an immediate update to show the change
+                                                // Force component re-render
+                                                setForceUpdate(prev => prev + 1);
                                                 setTimeout(() => {
                                                   updatePreview();
-                                                }, 100);
+                                                }, 50);
                                               }}
                                               className="mt-2 text-xs border-blue-300 text-blue-600 hover:bg-blue-100"
                                             >
