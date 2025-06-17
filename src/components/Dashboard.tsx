@@ -528,64 +528,54 @@ export default function Dashboard({
     setHasUnsavedChanges(true);
   };
 
-  // Extract all available images from sessions
+  // Extract all available images from sessions - organized by session for better separation
   const getAllAvailableImages = () => {
-    const allImages: Array<{url: string, source: string, sessionUrl: string}> = [];
-    const seenUrls = new Set<string>();
+    const allImages: Array<{url: string, source: string, sessionUrl: string, sessionTitle: string, isCurrentHero: boolean, isOriginalHero: boolean}> = [];
     
     sessions.forEach((session, sessionIndex) => {
       const sessionTitle = session.title || `Session ${sessionIndex + 1}`;
       const currentHeroForSession = sessionHeroImages[session.url];
+      const seenUrlsForSession = new Set<string>();
       
       // Always add firstImage if available (this is the original/default hero)
-      if (session.firstImage && !seenUrls.has(session.firstImage)) {
+      if (session.firstImage) {
         const isCurrentHero = currentHeroForSession === session.firstImage || !currentHeroForSession;
         allImages.push({
           url: session.firstImage,
-          source: isCurrentHero ? `${sessionTitle} (Current Hero)` : `${sessionTitle} (Original Hero)`,
-          sessionUrl: session.url
+          source: isCurrentHero ? `Original Hero` : `Original Hero`,
+          sessionUrl: session.url,
+          sessionTitle,
+          isCurrentHero,
+          isOriginalHero: true
         });
-        seenUrls.add(session.firstImage);
+        seenUrlsForSession.add(session.firstImage);
       }
       
       // Add other images from the images array if available
       if (session.images && Array.isArray(session.images)) {
         session.images.forEach((img: string, imgIndex: number) => {
-          if (img && !seenUrls.has(img)) {
+          if (img && !seenUrlsForSession.has(img)) {
             const isCurrentHero = currentHeroForSession === img;
             const isOriginalHero = img === session.firstImage;
             
             let label;
-            if (isCurrentHero && isOriginalHero) {
-              label = `${sessionTitle} (Current Hero)`;
-            } else if (isCurrentHero) {
-              label = `${sessionTitle} (Selected Hero)`;
-            } else if (isOriginalHero) {
-              label = `${sessionTitle} (Original Hero)`;
+            if (isOriginalHero) {
+              label = `Original Hero`;
             } else {
-              label = `${sessionTitle} (Image ${imgIndex + 1})`;
+              label = `Image ${imgIndex + 1}`;
             }
             
             allImages.push({
               url: img,
               source: label,
-              sessionUrl: session.url
+              sessionUrl: session.url,
+              sessionTitle,
+              isCurrentHero,
+              isOriginalHero
             });
-            seenUrls.add(img);
+            seenUrlsForSession.add(img);
           }
         });
-      }
-      
-      // If no images array but we have firstImage, ensure it's included
-      // (This handles cases where API doesn't return full images array)
-      if (!session.images && session.firstImage && !seenUrls.has(session.firstImage)) {
-        const isCurrentHero = currentHeroForSession === session.firstImage || !currentHeroForSession;
-        allImages.push({
-          url: session.firstImage,
-          source: isCurrentHero ? `${sessionTitle} (Current Hero)` : `${sessionTitle} (Original Hero)`,
-          sessionUrl: session.url
-        });
-        seenUrls.add(session.firstImage);
       }
     });
     
@@ -595,12 +585,18 @@ export default function Dashboard({
         {
           url: 'https://images.unsplash.com/photo-1606216794074-735e91aa2c92?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80',
           source: 'Fallback Image 1',
-          sessionUrl: sessions[0]?.url || ''
+          sessionUrl: sessions[0]?.url || '',
+          sessionTitle: 'Session 1',
+          isCurrentHero: false,
+          isOriginalHero: false
         },
         {
           url: 'https://images.unsplash.com/photo-1542038784456-1ea8e935640e?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80',
           source: 'Fallback Image 2',
-          sessionUrl: sessions[0]?.url || ''
+          sessionUrl: sessions[0]?.url || '',
+          sessionTitle: 'Session 1',
+          isCurrentHero: false,
+          isOriginalHero: false
         }
       );
     }
@@ -1279,43 +1275,122 @@ export default function Dashboard({
                                 Choose from the images extracted from your sessions to use as the hero image in your email template.
                               </p>
                               
-                              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
-                                {getAllAvailableImages().map((image, index) => (
-                                  <div
-                                    key={index}
-                                    className={`relative group cursor-pointer rounded-xl overflow-hidden border-4 transition-all duration-300 ${
-                                      sessionHeroImages[image.sessionUrl] === image.url
-                                        ? 'border-blue-500 shadow-lg scale-105'
-                                        : 'border-gray-200 hover:border-blue-300 hover:shadow-md'
-                                    }`}
-                                    onClick={() => handleHeroImageChange(image.url, image.sessionUrl)}
-                                  >
-                                    <div className="aspect-video relative">
-                                      <img
-                                        src={image.url}
-                                        alt={image.source}
-                                        className="w-full h-full object-cover"
-                                        onError={(e) => {
-                                          const target = e.target as HTMLImageElement;
-                                          target.src = 'https://images.unsplash.com/photo-1606216794074-735e91aa2c92?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80';
-                                        }}
-                                      />
-                                      {sessionHeroImages[image.sessionUrl] === image.url && (
-                                        <div className="absolute inset-0 bg-blue-500/20 flex items-center justify-center">
-                                          <div className="bg-blue-500 text-white rounded-full p-2">
-                                            <Eye className="h-4 w-4" />
-                                          </div>
+                              {/* Group images by session for better organization */}
+                              {sessions.length > 1 ? (
+                                <div className="space-y-8">
+                                  {sessions.map((session, sessionIndex) => {
+                                    const sessionTitle = session.title || `Session ${sessionIndex + 1}`;
+                                    const sessionImages = getAllAvailableImages().filter(img => img.sessionUrl === session.url);
+                                    const currentHero = sessionHeroImages[session.url];
+                                    
+                                    return (
+                                      <div key={session.url} className="border-2 border-gray-100 rounded-2xl p-6 bg-gradient-to-br from-gray-50 to-white">
+                                        <div className="flex items-center gap-3 mb-4">
+                                          <div className="w-4 h-4 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full"></div>
+                                          <h3 className="text-lg font-semibold text-gray-800">{sessionTitle}</h3>
+                                          {currentHero && (
+                                            <div className="flex items-center gap-1 bg-blue-100 px-2 py-1 rounded-full">
+                                              <Eye className="h-3 w-3 text-blue-600" />
+                                              <span className="text-xs text-blue-600 font-medium">Hero Selected</span>
+                                            </div>
+                                          )}
                                         </div>
-                                      )}
+                                        
+                                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3 gap-3">
+                                          {sessionImages.map((image, imgIndex) => (
+                                            <div
+                                              key={imgIndex}
+                                              className={`relative group cursor-pointer rounded-xl overflow-hidden border-4 transition-all duration-300 ${
+                                                image.isCurrentHero
+                                                  ? 'border-blue-500 shadow-lg scale-105'
+                                                  : 'border-gray-200 hover:border-blue-300 hover:shadow-md'
+                                              }`}
+                                              onClick={() => handleHeroImageChange(image.url, image.sessionUrl)}
+                                            >
+                                              <div className="aspect-video relative">
+                                                <img
+                                                  src={image.url}
+                                                  alt={image.source}
+                                                  className="w-full h-full object-cover"
+                                                  onError={(e) => {
+                                                    const target = e.target as HTMLImageElement;
+                                                    target.src = 'https://images.unsplash.com/photo-1606216794074-735e91aa2c92?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80';
+                                                  }}
+                                                />
+                                                {image.isCurrentHero && (
+                                                  <div className="absolute inset-0 bg-blue-500/20 flex items-center justify-center">
+                                                    <div className="bg-blue-500 text-white rounded-full p-2">
+                                                      <Eye className="h-4 w-4" />
+                                                    </div>
+                                                  </div>
+                                                )}
+                                                {image.isOriginalHero && !image.isCurrentHero && (
+                                                  <div className="absolute top-2 left-2">
+                                                    <div className="bg-green-500 text-white rounded-full px-2 py-1 text-xs font-medium">
+                                                      Default
+                                                    </div>
+                                                  </div>
+                                                )}
+                                              </div>
+                                              <div className="p-3 bg-white">
+                                                <p className="text-xs text-gray-600 truncate" title={image.source}>
+                                                  {image.source}
+                                                </p>
+                                              </div>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              ) : (
+                                // Single session - use original layout
+                                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
+                                  {getAllAvailableImages().map((image, index) => (
+                                    <div
+                                      key={index}
+                                      className={`relative group cursor-pointer rounded-xl overflow-hidden border-4 transition-all duration-300 ${
+                                        image.isCurrentHero
+                                          ? 'border-blue-500 shadow-lg scale-105'
+                                          : 'border-gray-200 hover:border-blue-300 hover:shadow-md'
+                                      }`}
+                                      onClick={() => handleHeroImageChange(image.url, image.sessionUrl)}
+                                    >
+                                      <div className="aspect-video relative">
+                                        <img
+                                          src={image.url}
+                                          alt={image.source}
+                                          className="w-full h-full object-cover"
+                                          onError={(e) => {
+                                            const target = e.target as HTMLImageElement;
+                                            target.src = 'https://images.unsplash.com/photo-1606216794074-735e91aa2c92?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80';
+                                          }}
+                                        />
+                                        {image.isCurrentHero && (
+                                          <div className="absolute inset-0 bg-blue-500/20 flex items-center justify-center">
+                                            <div className="bg-blue-500 text-white rounded-full p-2">
+                                              <Eye className="h-4 w-4" />
+                                            </div>
+                                          </div>
+                                        )}
+                                        {image.isOriginalHero && !image.isCurrentHero && (
+                                          <div className="absolute top-2 left-2">
+                                            <div className="bg-green-500 text-white rounded-full px-2 py-1 text-xs font-medium">
+                                              Default
+                                            </div>
+                                          </div>
+                                        )}
+                                      </div>
+                                      <div className="p-3 bg-white">
+                                        <p className="text-xs text-gray-600 truncate" title={`${image.sessionTitle} - ${image.source}`}>
+                                          {image.source}
+                                        </p>
+                                      </div>
                                     </div>
-                                    <div className="p-3 bg-white">
-                                      <p className="text-xs text-gray-600 truncate" title={image.source}>
-                                        {image.source}
-                                      </p>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
+                                  ))}
+                                </div>
+                              )}
                               
                               {Object.keys(sessionHeroImages).length > 0 && (
                                 <div className="mt-6 space-y-4">
@@ -1386,7 +1461,7 @@ export default function Dashboard({
                               <div className="w-3 h-3 bg-orange-400 rounded-full animate-pulse"></div>
                               <span className="text-orange-800 font-medium">You have unsaved customizations</span>
                             </div>
-                            <span className="text-orange-600 text-sm">Click "Update" to see your changes</span>
+                            <span className="text-orange-600 text-sm">Click "Update Preview" to see your changes</span>
                           </div>
                         )}
                         
@@ -1402,7 +1477,7 @@ export default function Dashboard({
                             } ${isUpdating ? 'opacity-75 cursor-not-allowed' : ''}`}
                           >
                             <Wand2 className={`h-3 w-3 sm:h-4 sm:w-4 ${isUpdating ? 'animate-spin' : ''}`} />
-                            <span className="hidden xs:inline">{isUpdating ? 'Updating...' : 'Update'}</span>
+                            <span className="hidden xs:inline">{isUpdating ? 'Updating...' : 'Update Preview'}</span>
                             <span className="xs:hidden">{isUpdating ? '...' : 'Update'}</span>
                             {hasUnsavedChanges && !isUpdating && <span className="ml-1 text-xs">•</span>}
                           </Button>
@@ -1425,7 +1500,7 @@ export default function Dashboard({
                             Email Preview
                           </CardTitle>
                           <CardDescription className="text-gray-600 mt-1">
-                            See how your email looks to recipients • Click "Update" after customizing
+                            See how your email looks to recipients • Click "Update Preview" after customizing
                           </CardDescription>
                         </div>
                       </div>
@@ -1580,3 +1655,4 @@ export default function Dashboard({
     </div>
   );
 }
+
