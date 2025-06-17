@@ -537,44 +537,51 @@ export default function Dashboard({
       const currentHeroForSession = sessionHeroImages[session.url];
       const seenUrlsForSession = new Set<string>();
       
-      // Always add firstImage if available (this is the original/default hero)
-      if (session.firstImage) {
-        const isCurrentHero = currentHeroForSession === session.firstImage || !currentHeroForSession;
+      // Process all images from the images array first to get complete list
+      const sessionImages = session.images && Array.isArray(session.images) ? session.images : [];
+      
+      // If firstImage is not in the images array, add it to the beginning
+      if (session.firstImage && !sessionImages.includes(session.firstImage)) {
+        sessionImages.unshift(session.firstImage);
+      }
+      
+      // Now process all images including the original hero
+      sessionImages.forEach((img: string, imgIndex: number) => {
+        if (img && !seenUrlsForSession.has(img)) {
+          const isCurrentHero = currentHeroForSession === img || (!currentHeroForSession && img === session.firstImage);
+          const isOriginalHero = img === session.firstImage;
+          
+          let label;
+          if (isOriginalHero) {
+            label = `Original Hero`;
+          } else {
+            // Adjust index since we might have added firstImage at the beginning
+            const actualIndex = session.images?.indexOf(img) ?? imgIndex;
+            label = `Image ${actualIndex + 1}`;
+          }
+          
+          allImages.push({
+            url: img,
+            source: label,
+            sessionUrl: session.url,
+            sessionTitle,
+            isCurrentHero,
+            isOriginalHero
+          });
+          seenUrlsForSession.add(img);
+        }
+      });
+      
+      // Fallback: if no images were processed but we have firstImage, add it
+      if (allImages.filter(img => img.sessionUrl === session.url).length === 0 && session.firstImage) {
+        const isCurrentHero = !currentHeroForSession || currentHeroForSession === session.firstImage;
         allImages.push({
           url: session.firstImage,
-          source: isCurrentHero ? `Original Hero` : `Original Hero`,
+          source: `Original Hero`,
           sessionUrl: session.url,
           sessionTitle,
           isCurrentHero,
           isOriginalHero: true
-        });
-        seenUrlsForSession.add(session.firstImage);
-      }
-      
-      // Add other images from the images array if available
-      if (session.images && Array.isArray(session.images)) {
-        session.images.forEach((img: string, imgIndex: number) => {
-          if (img && !seenUrlsForSession.has(img)) {
-            const isCurrentHero = currentHeroForSession === img;
-            const isOriginalHero = img === session.firstImage;
-            
-            let label;
-            if (isOriginalHero) {
-              label = `Original Hero`;
-            } else {
-              label = `Image ${imgIndex + 1}`;
-            }
-            
-            allImages.push({
-              url: img,
-              source: label,
-              sessionUrl: session.url,
-              sessionTitle,
-              isCurrentHero,
-              isOriginalHero
-            });
-            seenUrlsForSession.add(img);
-          }
         });
       }
     });
@@ -915,8 +922,8 @@ export default function Dashboard({
                             className="gap-1 sm:gap-2 border-2 border-green-200 hover:border-green-400 hover:bg-green-50 transition-all duration-300 text-xs sm:text-sm px-3 sm:px-4 py-2"
                           >
                             <Plus className="h-3 w-3 sm:h-4 sm:w-4 text-green-500" />
-                            <span className="hidden xs:inline">Add URL</span>
-                            <span className="xs:hidden">Add</span>
+                            <span className="hidden sm:inline">Add URL</span>
+                                                          <span className="sm:hidden">Add</span>
                           </Button>
                           <div className="flex items-center gap-2">
                             <div className="w-2 h-2 bg-gradient-to-r from-purple-400 to-pink-400 rounded-full"></div>
@@ -936,8 +943,8 @@ export default function Dashboard({
                           {isGenerating ? (
                             <>
                               <div className="animate-spin h-4 w-4 sm:h-5 sm:w-5 border-2 border-white border-t-transparent rounded-full"></div>
-                              <span className="hidden xs:inline">Generating Magic...</span>
-                              <span className="xs:hidden">Generating...</span>
+                              <span className="hidden sm:inline">Generating Magic...</span>
+                                                              <span className="sm:hidden">Generating...</span>
                             </>
                           ) : (
                             <>
@@ -1010,18 +1017,18 @@ export default function Dashboard({
                       <TabsList className="grid w-full grid-cols-3 bg-white/50 backdrop-blur-sm h-auto p-1">
                         <TabsTrigger value="colors" className="flex items-center gap-1 sm:gap-2 data-[state=active]:bg-white data-[state=active]:shadow-md text-xs sm:text-sm py-2 px-2 sm:px-3">
                           <Palette className="h-3 w-3 sm:h-4 sm:w-4" />
-                          <span className="hidden xs:inline">Colors</span>
-                          <span className="xs:hidden">🎨</span>
+                          <span className="hidden sm:inline">Colors</span>
+                                                      <span className="sm:hidden">🎨</span>
                         </TabsTrigger>
                         <TabsTrigger value="typography" className="flex items-center gap-1 sm:gap-2 data-[state=active]:bg-white data-[state=active]:shadow-md text-xs sm:text-sm py-2 px-2 sm:px-3">
                           <Type className="h-3 w-3 sm:h-4 sm:w-4" />
-                          <span className="hidden xs:inline">Typography</span>
-                          <span className="xs:hidden">Aa</span>
+                          <span className="hidden sm:inline">Typography</span>
+                                                      <span className="sm:hidden">Aa</span>
                         </TabsTrigger>
                         <TabsTrigger value="images" className="flex items-center gap-1 sm:gap-2 data-[state=active]:bg-white data-[state=active]:shadow-md text-xs sm:text-sm py-2 px-2 sm:px-3">
                           <Image className="h-3 w-3 sm:h-4 sm:w-4" />
-                          <span className="hidden xs:inline">Images</span>
-                          <span className="xs:hidden">🖼️</span>
+                          <span className="hidden sm:inline">Images</span>
+                                                      <span className="sm:hidden">🖼️</span>
                         </TabsTrigger>
                       </TabsList>
 
@@ -1477,8 +1484,8 @@ export default function Dashboard({
                             } ${isUpdating ? 'opacity-75 cursor-not-allowed' : ''}`}
                           >
                             <Wand2 className={`h-3 w-3 sm:h-4 sm:w-4 ${isUpdating ? 'animate-spin' : ''}`} />
-                            <span className="hidden xs:inline">{isUpdating ? 'Updating...' : 'Update Preview'}</span>
-                            <span className="xs:hidden">{isUpdating ? '...' : 'Update'}</span>
+                            <span className="hidden sm:inline">{isUpdating ? 'Updating...' : 'Update Preview'}</span>
+                            <span className="sm:hidden">{isUpdating ? '...' : 'Update'}</span>
                             {hasUnsavedChanges && !isUpdating && <span className="ml-1 text-xs">•</span>}
                           </Button>
                         </div>
