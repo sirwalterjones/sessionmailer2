@@ -63,6 +63,7 @@ export default function Dashboard({
   const [nextId, setNextId] = useState(2);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isGenerated, setIsGenerated] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
   const [error, setError] = useState("");
   const [capturedHtml, setCapturedHtml] = useState("");
   const [rawHtml, setRawHtml] = useState("");
@@ -607,27 +608,25 @@ export default function Dashboard({
     return allImages;
   };
 
-  // Fast client-side styling update - regenerates HTML if hero images changed
+  // Fast client-side styling update - only regenerates HTML if hero images changed
   const updatePreview = async () => {
     if (!emailHtml && !capturedHtml) return;
     
+    setIsUpdating(true);
     try {
       // Check if any hero images are customized (different from original)
       const hasCustomHeroImages = Object.keys(sessionHeroImages).length > 0;
       
       if (hasCustomHeroImages) {
-        // Regenerate HTML with custom hero images by calling the API
-        const urls = urlInputs.map(input => input.value.trim()).filter(url => url.length > 0);
-        if (urls.length > 0) {
-          const sessionData = await extractSessionData(urls);
-          
+        // Only regenerate HTML if we have sessions data already (avoid expensive re-extraction)
+        if (sessions.length > 0) {
           const response = await fetch('/api/enhanced-extract', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              sessions: sessionData,
+              sessions: sessions,
               customization: {
                 primaryColor,
                 secondaryColor,
@@ -802,6 +801,8 @@ export default function Dashboard({
         setHasUnsavedChanges(false);
     } catch (error) {
       console.error("Error updating preview:", error);
+    } finally {
+      setIsUpdating(false);
     }
   };
 
@@ -1385,7 +1386,7 @@ export default function Dashboard({
                               <div className="w-3 h-3 bg-orange-400 rounded-full animate-pulse"></div>
                               <span className="text-orange-800 font-medium">You have unsaved customizations</span>
                             </div>
-                            <span className="text-orange-600 text-sm">Click "Update Preview" to see your changes</span>
+                            <span className="text-orange-600 text-sm">Click "Update" to see your changes</span>
                           </div>
                         )}
                         
@@ -1393,16 +1394,17 @@ export default function Dashboard({
                         <div className="flex justify-center">
                           <Button
                             onClick={updatePreview}
+                            disabled={isUpdating}
                             className={`gap-2 border-0 text-white font-semibold px-6 sm:px-8 py-2 sm:py-3 shadow-lg transition-all duration-300 text-sm sm:text-base ${
                               hasUnsavedChanges 
                                 ? 'sexy-button animate-pulse' 
                                 : 'bg-gradient-to-r from-gray-400 to-gray-500 hover:from-gray-500 hover:to-gray-600'
-                            }`}
+                            } ${isUpdating ? 'opacity-75 cursor-not-allowed' : ''}`}
                           >
-                            <Wand2 className="h-3 w-3 sm:h-4 sm:w-4" />
-                            <span className="hidden xs:inline">Update Preview</span>
-                            <span className="xs:hidden">Update</span>
-                            {hasUnsavedChanges && <span className="ml-1 text-xs">•</span>}
+                            <Wand2 className={`h-3 w-3 sm:h-4 sm:w-4 ${isUpdating ? 'animate-spin' : ''}`} />
+                            <span className="hidden xs:inline">{isUpdating ? 'Updating...' : 'Update'}</span>
+                            <span className="xs:hidden">{isUpdating ? '...' : 'Update'}</span>
+                            {hasUnsavedChanges && !isUpdating && <span className="ml-1 text-xs">•</span>}
                           </Button>
                         </div>
                       </div>
@@ -1423,7 +1425,7 @@ export default function Dashboard({
                             Email Preview
                           </CardTitle>
                           <CardDescription className="text-gray-600 mt-1">
-                            See how your email looks to recipients • Click "Update Preview" after customizing
+                            See how your email looks to recipients • Click "Update" after customizing
                           </CardDescription>
                         </div>
                       </div>
