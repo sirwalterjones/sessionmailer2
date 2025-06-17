@@ -238,15 +238,26 @@ export default function Dashboard({
 
       if (data.success) {
         if (data.sessions && Array.isArray(data.sessions)) {
+          // Debug: Log the raw API response
+          console.log('DEBUG: Raw API response:', data);
+          console.log('DEBUG: Sessions from API:', data.sessions);
+          
           // Ensure sessions include the images array from API response
-          const sessionsWithImages = data.sessions.map((session: any) => ({
-            url: session.url,
-            title: session.title,
-            html: session.html || session.enhancedEmailHtml || "",
-            firstImage: session.firstImage,
-            images: session.images || [],
-            error: session.error
-          }));
+          const sessionsWithImages = data.sessions.map((session: any, index: number) => {
+            console.log(`DEBUG: Processing session ${index + 1} from API:`, session);
+            console.log(`DEBUG: Session images from API:`, session.images);
+            
+            return {
+              url: session.url,
+              title: session.title,
+              html: session.html || session.enhancedEmailHtml || "",
+              firstImage: session.firstImage,
+              images: session.images || [],
+              error: session.error
+            };
+          });
+          
+          console.log('DEBUG: Processed sessions with images:', sessionsWithImages);
           setSessions(sessionsWithImages);
           
           if (data.sessions.length > 1) {
@@ -532,30 +543,29 @@ export default function Dashboard({
   const getAllAvailableImages = () => {
     const allImages: Array<{url: string, source: string, sessionUrl: string, sessionTitle: string, isCurrentHero: boolean, isOriginalHero: boolean}> = [];
     
+    // Debug: Log the sessions data to understand what we're working with
+    console.log('DEBUG: Sessions data:', sessions);
+    console.log('DEBUG: Number of sessions:', sessions.length);
+    
     sessions.forEach((session, sessionIndex) => {
       const sessionTitle = session.title || `Session ${sessionIndex + 1}`;
       const currentHeroForSession = sessionHeroImages[session.url];
-      const seenUrls = new Set<string>();
       
-      // ALWAYS add firstImage first if it exists (this is the original hero)
-      if (session.firstImage && !seenUrls.has(session.firstImage)) {
-        const isCurrentHero = currentHeroForSession === session.firstImage || !currentHeroForSession;
-        allImages.push({
-          url: session.firstImage,
-          source: `Original Hero`,
-          sessionUrl: session.url,
-          sessionTitle,
-          isCurrentHero,
-          isOriginalHero: true
-        });
-        seenUrls.add(session.firstImage);
-      }
+      console.log(`DEBUG: Session ${sessionIndex + 1}:`, {
+        title: session.title,
+        url: session.url,
+        firstImage: session.firstImage,
+        images: session.images,
+        imagesType: typeof session.images,
+        imagesLength: session.images?.length
+      });
       
-      // Then add ALL other images from the images array
+      // Add ALL images from the images array - this ensures we get all 5 images
       if (session.images && Array.isArray(session.images)) {
+        console.log(`DEBUG: Processing ${session.images.length} images for session ${sessionIndex + 1}`);
         session.images.forEach((img: string, imgIndex: number) => {
-          if (img && !seenUrls.has(img)) {
-            const isCurrentHero = currentHeroForSession === img;
+          if (img) {
+            const isCurrentHero = currentHeroForSession === img || (!currentHeroForSession && img === session.firstImage);
             const isOriginalHero = img === session.firstImage;
             
             allImages.push({
@@ -566,14 +576,57 @@ export default function Dashboard({
               isCurrentHero,
               isOriginalHero
             });
-            seenUrls.add(img);
+            console.log(`DEBUG: Added image ${imgIndex + 1} for session ${sessionIndex + 1}:`, img, 'isOriginalHero:', isOriginalHero);
           }
         });
+      } else {
+        console.log(`DEBUG: No images array or not an array for session ${sessionIndex + 1}:`, session.images);
+        
+        // Fallback: if no images array but we have firstImage, add it
+        if (session.firstImage) {
+          const isCurrentHero = currentHeroForSession === session.firstImage || !currentHeroForSession;
+          allImages.push({
+            url: session.firstImage,
+            source: `Original Hero`,
+            sessionUrl: session.url,
+            sessionTitle,
+            isCurrentHero,
+            isOriginalHero: true
+          });
+          console.log(`DEBUG: Added firstImage as fallback for session ${sessionIndex + 1}:`, session.firstImage);
+        }
       }
+      
+      // ADDITIONAL FALLBACK: If we still don't have enough images, try to extract from other session properties
+      // Look for other potential image properties in the session object
+      const seenUrls = new Set(allImages.map(img => img.url));
+      const potentialImageProps = ['coverImage', 'image', 'heroImage', 'mainImage', 'featuredImage'];
+      potentialImageProps.forEach((prop) => {
+        const sessionAny = session as any;
+        if (sessionAny[prop] && typeof sessionAny[prop] === 'string' && !seenUrls.has(sessionAny[prop])) {
+          const isCurrentHero = currentHeroForSession === sessionAny[prop];
+          const isOriginalHero = sessionAny[prop] === session.firstImage;
+          
+          allImages.push({
+            url: sessionAny[prop],
+            source: isOriginalHero ? `Original Hero` : `Additional Image`,
+            sessionUrl: session.url,
+            sessionTitle,
+            isCurrentHero,
+            isOriginalHero
+          });
+          seenUrls.add(sessionAny[prop]);
+          console.log(`DEBUG: Added additional image from ${prop} for session ${sessionIndex + 1}:`, sessionAny[prop]);
+        }
+      });
     });
+    
+    console.log('DEBUG: Total images found:', allImages.length);
+    console.log('DEBUG: All images:', allImages);
     
     // Add fallback images if no images found at all
     if (allImages.length === 0) {
+      console.log('DEBUG: No images found, adding fallback images');
       allImages.push(
         {
           url: 'https://images.unsplash.com/photo-1606216794074-735e91aa2c92?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80',
