@@ -209,7 +209,8 @@ export default function Dashboard({
       }
 
       const data = await response.json();
-      console.log("Enhanced API response:", data);
+      console.log("Enhanced API response success:", data.success);
+      console.log("Enhanced API response sessions count:", data.sessions?.length || 0);
       return data;
     } catch (error) {
       console.error("Error extracting session data:", error);
@@ -237,18 +238,29 @@ export default function Dashboard({
       
       const data = await extractSessionData(urlInput);
 
+      console.log('DEBUG: Received data from extractSessionData:', data);
+      console.log('DEBUG: data.success:', data.success);
+      console.log('DEBUG: data.sessions:', data.sessions);
+      console.log('DEBUG: typeof data.sessions:', typeof data.sessions);
+      console.log('DEBUG: Array.isArray(data.sessions):', Array.isArray(data.sessions));
+
       if (data.success) {
         if (data.sessions && Array.isArray(data.sessions)) {
-          // Debug: Log the raw API response
-          console.log('DEBUG: Raw API response:', data);
-          console.log('DEBUG: Sessions from API:', data.sessions);
+          console.log('=== DEBUG: PROCESSING API SESSIONS ===');
+          console.log('DEBUG: Raw API sessions data:', JSON.stringify(data.sessions, null, 2));
+          console.log('DEBUG: Processing sessions from API, count:', data.sessions.length);
           
           // Ensure sessions include the images array from API response
           const sessionsWithImages = data.sessions.map((session: any, index: number) => {
-            console.log(`DEBUG: Processing session ${index + 1} from API:`, session);
-            console.log(`DEBUG: Session images from API:`, session.images);
+            console.log(`DEBUG: Raw session ${index + 1} data:`, {
+              url: session.url,
+              title: session.title,
+              images: session.images,
+              imagesCount: session.images?.length || 0,
+              firstImage: session.firstImage
+            });
             
-            return {
+            const processedSession = {
               url: session.url,
               title: session.title,
               html: session.html || session.enhancedEmailHtml || "",
@@ -256,10 +268,24 @@ export default function Dashboard({
               images: session.images || [],
               error: session.error
             };
+            
+            console.log(`DEBUG: Processed session ${index + 1}:`, processedSession);
+            return processedSession;
           });
           
-          console.log('DEBUG: Processed sessions with images:', sessionsWithImages);
+          console.log('=== DEBUG: FINAL SESSIONS TO SET ===');
+          console.log('DEBUG: Final sessions data:', JSON.stringify(sessionsWithImages, null, 2));
+          console.log('DEBUG: About to call setSessions with', sessionsWithImages.length, 'sessions');
+          
           setSessions(sessionsWithImages);
+          console.log('DEBUG: setSessions called successfully');
+          console.log('=== END DEBUG ===');
+          
+          // Force a re-render to ensure the component updates
+          setTimeout(() => {
+            console.log('DEBUG: Force update after setSessions');
+            setForceUpdate(prev => prev + 1);
+          }, 100);
           
           if (data.sessions.length > 1) {
             // Multiple sessions
@@ -520,165 +546,227 @@ export default function Dashboard({
     if (isGenerated) setHasUnsavedChanges(true);
   };
 
-  const handleHeroImageChange = (imageUrl: string, sessionUrl?: string) => {
+  const handleHeroImageChange = async (imageUrl: string, sessionUrl?: string) => {
+    console.log('DEBUG: Hero image change requested:', { imageUrl, sessionUrl });
+    
+    let updatedHeroImages: Record<string, string>;
+    
     if (sessionUrl) {
       // Set hero image for specific session
-      setSessionHeroImages(prev => ({
-        ...prev,
-        [sessionUrl]: imageUrl
-      }));
+      updatedHeroImages = { ...sessionHeroImages, [sessionUrl]: imageUrl };
+      setSessionHeroImages(updatedHeroImages);
+      console.log('DEBUG: Updated sessionHeroImages:', updatedHeroImages);
     } else {
       // For single session or global, use the first session URL
       const firstSessionUrl = sessions[0]?.url;
       if (firstSessionUrl) {
-        setSessionHeroImages(prev => ({
-          ...prev,
-          [firstSessionUrl]: imageUrl
-        }));
+        updatedHeroImages = { ...sessionHeroImages, [firstSessionUrl]: imageUrl };
+        setSessionHeroImages(updatedHeroImages);
+        console.log('DEBUG: Updated sessionHeroImages (single session):', updatedHeroImages);
+      } else {
+        console.warn('DEBUG: No session URL available for hero image change');
+        return;
       }
     }
+    
     setHasUnsavedChanges(true);
     setForceUpdate(prev => prev + 1);
+    
+    // Trigger preview update with the updated hero images state
+    setTimeout(() => {
+      console.log('DEBUG: Triggering preview update with updated state...');
+      updatePreviewWithHeroImages(updatedHeroImages);
+    }, 100);
   };
 
-  // Extract all available images from sessions - simplified to always show all images
-  const getAllAvailableImages = useMemo(() => {
+  // State for available images
+  const [availableImages, setAvailableImages] = useState<Array<{url: string, source: string, sessionUrl: string, sessionTitle: string, isCurrentHero: boolean, isOriginalHero: boolean}>>([]);
+
+  // Update available images when sessions or sessionHeroImages change
+  useEffect(() => {
+    console.log('=== DEBUG: AVAILABLE IMAGES UPDATE ===');
+    console.log('DEBUG: sessions.length:', sessions.length);
+    console.log('DEBUG: Full sessions data:', JSON.stringify(sessions, null, 2));
+    
     const allImages: Array<{url: string, source: string, sessionUrl: string, sessionTitle: string, isCurrentHero: boolean, isOriginalHero: boolean}> = [];
     
+    // SIMPLE APPROACH: Just get all images from sessions
     sessions.forEach((session, sessionIndex) => {
+      console.log(`DEBUG: Processing session ${sessionIndex + 1}:`, {
+        url: session.url,
+        title: session.title,
+        firstImage: session.firstImage,
+        imagesCount: session.images?.length || 0,
+        images: session.images
+      });
+      
       const sessionTitle = session.title || `Session ${sessionIndex + 1}`;
       const currentHeroForSession = sessionHeroImages[session.url];
       
-      // Add ALL images from the images array - this ensures we get all 5 images
-      if (session.images && Array.isArray(session.images)) {
-        session.images.forEach((img: string, imgIndex: number) => {
-          if (img) {
-            const isCurrentHero = currentHeroForSession === img || (!currentHeroForSession && img === session.firstImage);
-            const isOriginalHero = img === session.firstImage;
+      // ALWAYS add the original hero image first if it exists
+      if (session.firstImage) {
+        const isCurrentHero = currentHeroForSession === session.firstImage || !currentHeroForSession;
+        allImages.push({
+          url: session.firstImage,
+          source: 'Original Hero',
+          sessionUrl: session.url,
+          sessionTitle: sessionTitle,
+          isCurrentHero,
+          isOriginalHero: true
+        });
+        console.log(`DEBUG: Added original hero image: ${session.firstImage}`);
+      }
+      
+      // Then add all other images from the session (excluding the firstImage to avoid duplicates)
+      if (session.images && Array.isArray(session.images) && session.images.length > 0) {
+        session.images.forEach((imageUrl: string, imgIndex: number) => {
+          if (imageUrl && typeof imageUrl === 'string' && imageUrl !== session.firstImage) {
+            const isCurrentHero = currentHeroForSession === imageUrl;
             
             allImages.push({
-              url: img,
-              source: isOriginalHero ? `Original Hero` : `Image ${imgIndex + 1}`,
+              url: imageUrl,
+              source: `Session Image ${imgIndex + 1}`,
               sessionUrl: session.url,
-              sessionTitle,
+              sessionTitle: sessionTitle,
               isCurrentHero,
-              isOriginalHero
+              isOriginalHero: false
             });
           }
         });
-      } else {
-        // Fallback: if no images array but we have firstImage, add it
-        if (session.firstImage) {
-          const isCurrentHero = currentHeroForSession === session.firstImage || !currentHeroForSession;
-          allImages.push({
-            url: session.firstImage,
-            source: `Original Hero`,
-            sessionUrl: session.url,
-            sessionTitle,
-            isCurrentHero,
-            isOriginalHero: true
-          });
-        }
       }
-      
-      // ADDITIONAL FALLBACK: If we still don't have enough images, try to extract from other session properties
-      const seenUrls = new Set(allImages.map(img => img.url));
-      const potentialImageProps = ['coverImage', 'image', 'heroImage', 'mainImage', 'featuredImage'];
-      potentialImageProps.forEach((prop) => {
-        const sessionAny = session as any;
-        if (sessionAny[prop] && typeof sessionAny[prop] === 'string' && !seenUrls.has(sessionAny[prop])) {
-          const isCurrentHero = currentHeroForSession === sessionAny[prop];
-          const isOriginalHero = sessionAny[prop] === session.firstImage;
-          
-          allImages.push({
-            url: sessionAny[prop],
-            source: isOriginalHero ? `Original Hero` : `Additional Image`,
-            sessionUrl: session.url,
-            sessionTitle,
-            isCurrentHero,
-            isOriginalHero
-          });
-          seenUrls.add(sessionAny[prop]);
-        }
-      });
     });
     
-    // Add fallback images if no images found at all
+    // Only add fallback if NO images found at all
     if (allImages.length === 0) {
+      console.log('DEBUG: No session images found, adding fallback images');
       allImages.push(
         {
           url: 'https://images.unsplash.com/photo-1606216794074-735e91aa2c92?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80',
           source: 'Fallback Image 1',
-          sessionUrl: sessions[0]?.url || '',
-          sessionTitle: 'Session 1',
+          sessionUrl: '',
+          sessionTitle: 'Fallback',
           isCurrentHero: false,
           isOriginalHero: false
         },
         {
           url: 'https://images.unsplash.com/photo-1542038784456-1ea8e935640e?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80',
           source: 'Fallback Image 2',
-          sessionUrl: sessions[0]?.url || '',
-          sessionTitle: 'Session 1',
+          sessionUrl: '',
+          sessionTitle: 'Fallback',
           isCurrentHero: false,
           isOriginalHero: false
         }
       );
     }
     
-    // Debug log only once when the memo recalculates
-    console.log(`DEBUG: getAllAvailableImages recalculated - Found ${allImages.length} images`);
+    console.log(`DEBUG: FINAL RESULT - Found ${allImages.length} total images`);
+    console.log('DEBUG: Image URLs:', allImages.map(img => img.url));
+    console.log('DEBUG: Image details:', allImages.map(img => ({
+      url: img.url,
+      source: img.source,
+      sessionUrl: img.sessionUrl,
+      isCurrentHero: img.isCurrentHero,
+      isOriginalHero: img.isOriginalHero
+    })));
+    console.log('=== END DEBUG ===');
     
-    return allImages;
+    setAvailableImages(allImages);
   }, [sessions, sessionHeroImages, forceUpdate]);
 
-  // Fast client-side styling update - only regenerates HTML if hero images changed
-  const updatePreview = async () => {
-    if (!emailHtml && !capturedHtml) return;
+  // Track sessions state changes
+  useEffect(() => {
+    if (sessions.length > 0) {
+      console.log('DEBUG: Sessions loaded successfully:', sessions.length, 'sessions');
+      setForceUpdate(prev => prev + 1);
+    }
+  }, [sessions]);
+
+  // Track available images changes
+  useEffect(() => {
+    console.log('DEBUG: Available images updated:', availableImages.length, 'images');
+  }, [availableImages]);
+
+  // Fast client-side styling update - with optional hero images parameter to avoid state timing issues
+  const updatePreviewWithHeroImages = async (heroImages?: Record<string, string>) => {
+    const currentHeroImages = heroImages || sessionHeroImages;
+    console.log('DEBUG: updatePreviewWithHeroImages called');
+    console.log('DEBUG: emailHtml exists:', !!emailHtml);
+    console.log('DEBUG: capturedHtml exists:', !!capturedHtml);
+    console.log('DEBUG: currentHeroImages:', currentHeroImages);
+    
+    if (!emailHtml && !capturedHtml) {
+      console.log('DEBUG: No HTML content, skipping update');
+      return;
+    }
     
     setIsUpdating(true);
     try {
       // Check if any hero images are customized (different from original)
-      const hasCustomHeroImages = Object.keys(sessionHeroImages).length > 0;
+      const hasCustomHeroImages = Object.keys(currentHeroImages).length > 0;
+      console.log('DEBUG: hasCustomHeroImages:', hasCustomHeroImages);
+      console.log('DEBUG: sessions.length:', sessions.length);
       
-      if (hasCustomHeroImages) {
+      if (hasCustomHeroImages && sessions.length > 0) {
         // Only regenerate HTML if we have sessions data already (avoid expensive re-extraction)
-        if (sessions.length > 0) {
-          const response = await fetch('/api/enhanced-extract', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              sessions: sessions,
-              customization: {
-                primaryColor,
-                secondaryColor,
-                headingTextColor,
-                paragraphTextColor,
-                headingFont,
-                paragraphFont,
-                headingFontSize,
-                paragraphFontSize,
-                sessionHeroImages,
-              }
-            }),
-          });
+        // Use the existing URL-based approach since the API expects URLs, not session objects
+        const sessionUrls = sessions.map(session => session.url);
+        
+        const response = await fetch('/api/enhanced-extract', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            urls: sessionUrls,
+            customization: {
+              primaryColor,
+              secondaryColor,
+              headingTextColor,
+              paragraphTextColor,
+              headingFont,
+              paragraphFont,
+              headingFontSize,
+              paragraphFontSize,
+              sessionHeroImages: currentHeroImages,
+            }
+          }),
+        });
 
-          if (response.ok) {
-            const data = await response.json();
-            setEmailHtml(data.html);
-            setCapturedHtml(data.html);
-            setHasUnsavedChanges(false);
-            return;
+        if (response.ok) {
+          const data = await response.json();
+          console.log('DEBUG: API response received:', { success: data.success, hasEmailHtml: !!data.emailHtml, hasHtml: !!data.html });
+          if (data.success) {
+            // Handle different response formats
+            const updatedHtml = data.emailHtml || data.html;
+            if (updatedHtml) {
+              console.log('DEBUG: Updating preview with new HTML from API');
+              setEmailHtml(updatedHtml);
+              setCapturedHtml(updatedHtml);
+              setHasUnsavedChanges(false);
+              console.log('Hero image preview updated successfully via API');
+              return;
+            } else {
+              console.warn('DEBUG: API response successful but no HTML content found');
+            }
+          } else {
+            console.warn('DEBUG: API response not successful:', data);
           }
+        } else {
+          console.warn('Preview update failed with status:', response.status);
+          // Fall through to client-side styling update
         }
       }
       
       // Get the current HTML content for style-only updates
       const currentHtml = emailHtml || capturedHtml;
+      
+      if (!currentHtml) {
+        console.warn('No HTML content available for preview update');
+        return;
+      }
         
-        // Create a comprehensive style injection with better targeting
-        const styleInjection = `
+      // Create a comprehensive style injection with better targeting
+      const styleInjection = `
           <style>
             /* Ensure iframe content fits properly */
             body {
@@ -805,14 +893,31 @@ export default function Dashboard({
         
         // Replace hero images for each session if custom ones are selected
         sessions.forEach((session) => {
-          const customHeroImage = sessionHeroImages[session.url];
+          const customHeroImage = currentHeroImages[session.url];
           const originalImage = session.firstImage;
           
           if (customHeroImage && originalImage && customHeroImage !== originalImage) {
-            // Replace the original firstImage with the custom hero image
+            // More precise replacement - look for hero/header images specifically
             const originalImageEscaped = originalImage.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            const imagePattern = new RegExp(`src="${originalImageEscaped}"`, 'gi');
-            updatedHtml = updatedHtml.replace(imagePattern, `src="${customHeroImage}"`);
+            
+            // Replace hero images (typically the first/main image in templates)
+            const heroPatterns = [
+              new RegExp(`(<img[^>]*class="[^"]*hero[^"]*"[^>]*src=")${originalImageEscaped}("`, 'gi'),
+              new RegExp(`(<img[^>]*src=")${originalImageEscaped}("[^>]*class="[^"]*hero[^"]*")`, 'gi'),
+              new RegExp(`(<img[^>]*class="[^"]*header[^"]*"[^>]*src=")${originalImageEscaped}("`, 'gi'),
+              new RegExp(`(<img[^>]*src=")${originalImageEscaped}("[^>]*class="[^"]*header[^"]*")`, 'gi'),
+              // Fallback: replace the first occurrence of the image
+              new RegExp(`(<img[^>]*src=")${originalImageEscaped}("`, 'i')
+            ];
+            
+            for (const pattern of heroPatterns) {
+              const beforeReplace = updatedHtml;
+              updatedHtml = updatedHtml.replace(pattern, `$1${customHeroImage}$2`);
+              if (updatedHtml !== beforeReplace) {
+                // Successfully replaced, break to avoid multiple replacements
+                break;
+              }
+            }
           }
         });
         
@@ -827,6 +932,11 @@ export default function Dashboard({
     } finally {
       setIsUpdating(false);
     }
+  };
+
+  // Wrapper function for backward compatibility
+  const updatePreview = async () => {
+    await updatePreviewWithHeroImages();
   };
 
   // Note: Removed automatic preview updates to improve performance
@@ -875,6 +985,8 @@ export default function Dashboard({
           </div>
 
           <div className="space-y-8">
+
+            
             {/* URL Generator Section */}
             <Card className="glass-card border-0 shadow-2xl card-hover">
               <CardHeader className="pb-6">
@@ -943,7 +1055,7 @@ export default function Dashboard({
                           >
                             <Plus className="h-3 w-3 sm:h-4 sm:w-4 text-green-500" />
                             <span className="hidden sm:inline">Add URL</span>
-                                                          <span className="sm:hidden">Add</span>
+                            <span className="sm:hidden">Add</span>
                           </Button>
                           <div className="flex items-center gap-2">
                             <div className="w-2 h-2 bg-gradient-to-r from-purple-400 to-pink-400 rounded-full"></div>
@@ -964,7 +1076,7 @@ export default function Dashboard({
                             <>
                               <div className="animate-spin h-4 w-4 sm:h-5 sm:w-5 border-2 border-white border-t-transparent rounded-full"></div>
                               <span className="hidden sm:inline">Generating Magic...</span>
-                                                              <span className="sm:hidden">Generating...</span>
+                              <span className="sm:hidden">Generating...</span>
                             </>
                           ) : (
                             <>
@@ -1307,7 +1419,7 @@ export default function Dashboard({
                                 <div className="space-y-8">
                                   {sessions.map((session, sessionIndex) => {
                                     const sessionTitle = session.title || `Session ${sessionIndex + 1}`;
-                                    const sessionImages = getAllAvailableImages.filter((img: any) => img.sessionUrl === session.url);
+                                    const sessionImages = availableImages.filter((img: any) => img.sessionUrl === session.url);
                                     const currentHero = sessionHeroImages[session.url];
                                     
                                     return (
@@ -1373,8 +1485,8 @@ export default function Dashboard({
                                 </div>
                               ) : (
                                 // Single session - use original layout
-                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 auto-rows-fr" key={`single-session-${forceUpdate}`}>
-                                  {getAllAvailableImages.map((image: any, index: number) => (
+                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-5 gap-3 sm:gap-4 auto-rows-fr" key={`single-session-${forceUpdate}`}>
+                                  {availableImages.map((image: any, index: number) => (
                                     <div
                                       key={index}
                                       className={`relative group cursor-pointer rounded-xl overflow-hidden border-4 transition-all duration-300 ${
@@ -1446,15 +1558,26 @@ export default function Dashboard({
                                               variant="outline"
                                               size="sm"
                                               onClick={() => {
+                                                console.log('DEBUG: Reset button clicked for session:', sessionUrl);
+                                                const session = sessions.find(s => s.url === sessionUrl);
+                                                console.log('DEBUG: Found session:', session);
+                                                console.log('DEBUG: Session firstImage:', session?.firstImage);
+                                                
+                                                // Reset to the original hero image by removing the custom selection
+                                                // This will make it fall back to the default (firstImage)
                                                 const newImages = { ...sessionHeroImages };
                                                 delete newImages[sessionUrl];
                                                 setSessionHeroImages(newImages);
+                                                console.log('DEBUG: Removed custom selection, will fall back to firstImage:', session?.firstImage);
+                                                
                                                 setHasUnsavedChanges(true);
-                                                // Force component re-render
                                                 setForceUpdate(prev => prev + 1);
+                                                
+                                                // Trigger preview update after reset with updated state
                                                 setTimeout(() => {
-                                                  updatePreview();
-                                                }, 50);
+                                                  console.log('DEBUG: Triggering preview update after reset...');
+                                                  updatePreviewWithHeroImages(newImages);
+                                                }, 100);
                                               }}
                                               className="mt-2 text-xs border-blue-300 text-blue-600 hover:bg-blue-100"
                                             >
