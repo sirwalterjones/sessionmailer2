@@ -246,7 +246,7 @@ export default function SavedProjects({ onLoadProject, refreshTrigger }: SavedPr
                           className="gap-2"
                         >
                           <Download className="h-4 w-4" />
-                          Copy HTML
+                          Copy
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           onClick={() => handleDeleteProject(project.id)}

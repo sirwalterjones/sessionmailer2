@@ -1664,7 +1664,7 @@ export default function Dashboard({
                         className="gap-2 sexy-button border-0 text-white font-semibold px-4 sm:px-6 py-2 sm:py-3 shadow-lg text-sm sm:text-base"
                       >
                         <Copy className="h-3 w-3 sm:h-4 sm:w-4" />
-                        <span className="hidden sm:inline">{htmlCopied ? "✅ Copied!" : "Copy HTML"}</span>
+                                                          <span className="hidden sm:inline">{htmlCopied ? "✅ Copied!" : "Copy"}</span>
                         <span className="sm:hidden">{htmlCopied ? "✅" : "📋"}</span>
                       </Button>
                     </div>

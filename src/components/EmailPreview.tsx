@@ -211,7 +211,7 @@ const EmailPreview = ({
                 className="flex items-center gap-2"
               >
                 <Copy className="w-4 h-4" />
-                Copy HTML
+                Copy
               </Button>
               <Button
                 onClick={handleDownloadHtml}
