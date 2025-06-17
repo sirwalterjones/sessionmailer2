@@ -528,53 +528,18 @@ export default function Dashboard({
     setHasUnsavedChanges(true);
   };
 
-  // Extract all available images from sessions - organized by session for better separation
+  // Extract all available images from sessions - simplified to always show all images
   const getAllAvailableImages = () => {
     const allImages: Array<{url: string, source: string, sessionUrl: string, sessionTitle: string, isCurrentHero: boolean, isOriginalHero: boolean}> = [];
     
     sessions.forEach((session, sessionIndex) => {
       const sessionTitle = session.title || `Session ${sessionIndex + 1}`;
       const currentHeroForSession = sessionHeroImages[session.url];
-      const seenUrlsForSession = new Set<string>();
+      const seenUrls = new Set<string>();
       
-      // Process all images from the images array first to get complete list
-      const sessionImages = session.images && Array.isArray(session.images) ? session.images : [];
-      
-      // If firstImage is not in the images array, add it to the beginning
-      if (session.firstImage && !sessionImages.includes(session.firstImage)) {
-        sessionImages.unshift(session.firstImage);
-      }
-      
-      // Now process all images including the original hero
-      sessionImages.forEach((img: string, imgIndex: number) => {
-        if (img && !seenUrlsForSession.has(img)) {
-          const isCurrentHero = currentHeroForSession === img || (!currentHeroForSession && img === session.firstImage);
-          const isOriginalHero = img === session.firstImage;
-          
-          let label;
-          if (isOriginalHero) {
-            label = `Original Hero`;
-          } else {
-            // Adjust index since we might have added firstImage at the beginning
-            const actualIndex = session.images?.indexOf(img) ?? imgIndex;
-            label = `Image ${actualIndex + 1}`;
-          }
-          
-          allImages.push({
-            url: img,
-            source: label,
-            sessionUrl: session.url,
-            sessionTitle,
-            isCurrentHero,
-            isOriginalHero
-          });
-          seenUrlsForSession.add(img);
-        }
-      });
-      
-      // Fallback: if no images were processed but we have firstImage, add it
-      if (allImages.filter(img => img.sessionUrl === session.url).length === 0 && session.firstImage) {
-        const isCurrentHero = !currentHeroForSession || currentHeroForSession === session.firstImage;
+      // ALWAYS add firstImage first if it exists (this is the original hero)
+      if (session.firstImage && !seenUrls.has(session.firstImage)) {
+        const isCurrentHero = currentHeroForSession === session.firstImage || !currentHeroForSession;
         allImages.push({
           url: session.firstImage,
           source: `Original Hero`,
@@ -583,10 +548,31 @@ export default function Dashboard({
           isCurrentHero,
           isOriginalHero: true
         });
+        seenUrls.add(session.firstImage);
+      }
+      
+      // Then add ALL other images from the images array
+      if (session.images && Array.isArray(session.images)) {
+        session.images.forEach((img: string, imgIndex: number) => {
+          if (img && !seenUrls.has(img)) {
+            const isCurrentHero = currentHeroForSession === img;
+            const isOriginalHero = img === session.firstImage;
+            
+            allImages.push({
+              url: img,
+              source: isOriginalHero ? `Original Hero` : `Image ${imgIndex + 1}`,
+              sessionUrl: session.url,
+              sessionTitle,
+              isCurrentHero,
+              isOriginalHero
+            });
+            seenUrls.add(img);
+          }
+        });
       }
     });
     
-    // Add some fallback images if no images found at all
+    // Add fallback images if no images found at all
     if (allImages.length === 0) {
       allImages.push(
         {
@@ -1430,6 +1416,10 @@ export default function Dashboard({
                                                 delete newImages[sessionUrl];
                                                 setSessionHeroImages(newImages);
                                                 setHasUnsavedChanges(true);
+                                                // Force an immediate update to show the change
+                                                setTimeout(() => {
+                                                  updatePreview();
+                                                }, 100);
                                               }}
                                               className="mt-2 text-xs border-blue-300 text-blue-600 hover:bg-blue-100"
                                             >
