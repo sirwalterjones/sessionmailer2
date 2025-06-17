@@ -627,6 +627,8 @@ export default function Dashboard({
     
     // Debug log only once when the memo recalculates
     console.log(`DEBUG: getAllAvailableImages recalculated - Found ${allImages.length} images`);
+    console.log('DEBUG: All images URLs:', allImages.map(img => img.url));
+    console.log('DEBUG: All images sources:', allImages.map(img => img.source));
     
     return allImages;
   }, [sessions, sessionHeroImages, forceUpdate]);
@@ -1373,8 +1375,11 @@ export default function Dashboard({
                                 </div>
                               ) : (
                                 // Single session - use original layout
-                                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4" key={`single-session-${forceUpdate}`}>
-                                  {getAllAvailableImages.map((image: any, index: number) => (
+                                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4" key={`single-session-${forceUpdate}`}>
+                                  {getAllAvailableImages.map((image: any, index: number) => {
+                                    // Debug: Log each image being rendered
+                                    console.log(`DEBUG: Rendering image ${index + 1}:`, image.source, image.url);
+                                    return (
                                     <div
                                       key={index}
                                       className={`relative group cursor-pointer rounded-xl overflow-hidden border-4 transition-all duration-300 ${
@@ -1415,7 +1420,8 @@ export default function Dashboard({
                                         </p>
                                       </div>
                                     </div>
-                                  ))}
+                                    );
+                                  })}
                                 </div>
                               )}
                               
