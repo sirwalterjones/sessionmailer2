@@ -25,6 +25,8 @@ export async function POST(request: NextRequest) {
     const { 
       url: requestUrl, 
       urls: requestUrls, 
+      sessions: requestSessions,
+      customization,
       primaryColor = "#7851a9", 
       secondaryColor = "#6a4c96",
       headingFont = "Playfair Display",
@@ -34,6 +36,17 @@ export async function POST(request: NextRequest) {
       headingTextColor = "#ffffff",
       paragraphTextColor = "#333333"
     } = requestBody;
+    
+    // Extract customization parameters if provided
+    const sessionHeroImages = customization?.sessionHeroImages || {};
+    const finalPrimaryColor = customization?.primaryColor || primaryColor;
+    const finalSecondaryColor = customization?.secondaryColor || secondaryColor;
+    const finalHeadingFont = customization?.headingFont || headingFont;
+    const finalParagraphFont = customization?.paragraphFont || paragraphFont;
+    const finalHeadingFontSize = customization?.headingFontSize || headingFontSize;
+    const finalParagraphFontSize = customization?.paragraphFontSize || paragraphFontSize;
+    const finalHeadingTextColor = customization?.headingTextColor || headingTextColor;
+    const finalParagraphTextColor = customization?.paragraphTextColor || paragraphTextColor;
     
     const urlsToProcess = requestUrls && Array.isArray(requestUrls) ? requestUrls : [requestUrl];
     
@@ -554,9 +567,17 @@ export async function POST(request: NextRequest) {
           };
         });
         
+        // Apply custom hero image if specified for this session
+        const customHeroImage = sessionHeroImages[url];
+        if (customHeroImage && extractedData.images.includes(customHeroImage)) {
+          // Move the custom hero image to the front
+          const filteredImages = extractedData.images.filter(img => img !== customHeroImage);
+          extractedData.images = [customHeroImage, ...filteredImages];
+        }
+        
         // Create enhanced email HTML from extracted data
-        const enhancedEmailHtml = createEmailTemplate(extractedData, url, primaryColor, secondaryColor, headingFont, paragraphFont, headingFontSize, paragraphFontSize, headingTextColor, paragraphTextColor);
-                  const sessionContent = createSessionContent(extractedData, url, primaryColor, secondaryColor, headingFont, paragraphFont, headingFontSize, paragraphFontSize, headingTextColor, paragraphTextColor);
+        const enhancedEmailHtml = createEmailTemplate(extractedData, url, finalPrimaryColor, finalSecondaryColor, finalHeadingFont, finalParagraphFont, finalHeadingFontSize, finalParagraphFontSize, finalHeadingTextColor, finalParagraphTextColor);
+        const sessionContent = createSessionContent(extractedData, url, finalPrimaryColor, finalSecondaryColor, finalHeadingFont, finalParagraphFont, finalHeadingFontSize, finalParagraphFontSize, finalHeadingTextColor, finalParagraphTextColor);
         
         // Get traditional HTML for fallback
         const fullHtml = await page.content();
@@ -619,17 +640,31 @@ export async function POST(request: NextRequest) {
         .map(session => session.sessionContent)
         .join('<div style="margin: 20px 0; text-align: center;"><div style="height: 2px; background: linear-gradient(135deg, #7851a9 0%, #6a4c96 100%); margin: 20px auto; width: 100px; border-radius: 2px;"></div></div>');
       
+      // Get font family with fallback for combined sessions
+      const headingFontFamily = GOOGLE_FONTS[finalHeadingFont as keyof typeof GOOGLE_FONTS] 
+        ? `'${finalHeadingFont}', ${GOOGLE_FONTS[finalHeadingFont as keyof typeof GOOGLE_FONTS]}`
+        : "'Playfair Display', serif";
+      
+      // Generate Google Fonts import URL for combined sessions
+      const fontsToImport = [finalHeadingFont, finalParagraphFont].filter((font, index, arr) => 
+        font !== 'Georgia' && font !== 'Arial' && arr.indexOf(font) === index
+      );
+      const googleFontsUrl = fontsToImport.length > 0 
+        ? `https://fonts.googleapis.com/css2?${fontsToImport.map(font => `family=${font.replace(/\s+/g, '+')}`).join('&')}&display=swap`
+        : '';
+
       emailHtml = `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Photography Sessions</title>
+    ${googleFontsUrl ? `<link href="${googleFontsUrl}" rel="stylesheet">` : ''}
     <style>
         body { 
             margin: 0; 
             padding: 0; 
-            font-family: 'Playfair Display', Georgia, serif;
+            font-family: ${headingFontFamily};
             background: #f5f5f5; 
             line-height: 1.6;
         }

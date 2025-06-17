@@ -607,14 +607,53 @@ export default function Dashboard({
     return allImages;
   };
 
-  // Fast client-side styling update - no API calls needed!
-  const updatePreview = () => {
+  // Fast client-side styling update - regenerates HTML if hero images changed
+  const updatePreview = async () => {
     if (!emailHtml && !capturedHtml) return;
     
-    // No loading state needed since updates are instant
     try {
-      // Get the current HTML content
-        const currentHtml = emailHtml || capturedHtml;
+      // Check if any hero images are customized (different from original)
+      const hasCustomHeroImages = Object.keys(sessionHeroImages).length > 0;
+      
+      if (hasCustomHeroImages) {
+        // Regenerate HTML with custom hero images by calling the API
+        const urls = urlInputs.map(input => input.value.trim()).filter(url => url.length > 0);
+        if (urls.length > 0) {
+          const sessionData = await extractSessionData(urls);
+          
+          const response = await fetch('/api/enhanced-extract', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              sessions: sessionData,
+              customization: {
+                primaryColor,
+                secondaryColor,
+                headingTextColor,
+                paragraphTextColor,
+                headingFont,
+                paragraphFont,
+                headingFontSize,
+                paragraphFontSize,
+                sessionHeroImages,
+              }
+            }),
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            setEmailHtml(data.html);
+            setCapturedHtml(data.html);
+            setHasUnsavedChanges(false);
+            return;
+          }
+        }
+      }
+      
+      // Get the current HTML content for style-only updates
+      const currentHtml = emailHtml || capturedHtml;
         
         // Create a comprehensive style injection with better targeting
         const styleInjection = `
@@ -745,13 +784,13 @@ export default function Dashboard({
         // Replace hero images for each session if custom ones are selected
         sessions.forEach((session) => {
           const customHeroImage = sessionHeroImages[session.url];
-          if (customHeroImage && customHeroImage !== session.firstImage) {
+          const originalImage = session.firstImage;
+          
+          if (customHeroImage && originalImage && customHeroImage !== originalImage) {
             // Replace the original firstImage with the custom hero image
-            const originalImageEscaped = session.firstImage?.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            if (originalImageEscaped) {
-              const imagePattern = new RegExp(`src="${originalImageEscaped}"`, 'gi');
-              updatedHtml = updatedHtml.replace(imagePattern, `src="${customHeroImage}"`);
-            }
+            const originalImageEscaped = originalImage.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const imagePattern = new RegExp(`src="${originalImageEscaped}"`, 'gi');
+            updatedHtml = updatedHtml.replace(imagePattern, `src="${customHeroImage}"`);
           }
         });
         
@@ -1393,8 +1432,8 @@ export default function Dashboard({
                         className="gap-2 sexy-button border-0 text-white font-semibold px-4 sm:px-6 py-2 sm:py-3 shadow-lg text-sm sm:text-base"
                       >
                         <Copy className="h-3 w-3 sm:h-4 sm:w-4" />
-                        <span className="hidden xs:inline">{htmlCopied ? "✅ Copied!" : "Copy HTML"}</span>
-                        <span className="xs:hidden">{htmlCopied ? "✅" : "📋"}</span>
+                        <span className="hidden sm:inline">{htmlCopied ? "✅ Copied!" : "Copy HTML"}</span>
+                        <span className="sm:hidden">{htmlCopied ? "✅" : "📋"}</span>
                       </Button>
                     </div>
                   </CardHeader>

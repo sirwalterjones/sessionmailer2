@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/contexts/AuthContext'
@@ -15,8 +15,31 @@ export default function SignInPage() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const { signIn } = useAuth()
+  const { signIn, user, loading: authLoading } = useAuth()
   const router = useRouter()
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (!authLoading && user) {
+      // Try multiple redirect methods for maximum compatibility
+      const redirect = () => {
+        try {
+          window.location.href = '/dashboard'
+        } catch (e) {
+          // Fallback to router if window.location fails
+          router.push('/dashboard')
+        }
+      }
+      
+      // Immediate redirect
+      redirect()
+      
+      // Backup redirect after a short delay
+      const timeoutId = setTimeout(redirect, 100)
+      
+      return () => clearTimeout(timeoutId)
+    }
+  }, [user, authLoading, router])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -30,16 +53,36 @@ export default function SignInPage() {
         setError(error.message)
         setLoading(false)
       } else {
-        // Show success feedback briefly before redirect
-        setError('')
-        setTimeout(() => {
-          router.push('/dashboard')
-        }, 500) // Small delay to show success state
+        // Success - redirect with multiple fallback methods
+        const redirect = () => {
+          try {
+            window.location.href = '/dashboard'
+          } catch (e) {
+            router.push('/dashboard')
+          }
+        }
+        
+        redirect()
+        
+        // Backup redirect after a short delay
+        setTimeout(redirect, 100)
       }
     } catch (err) {
       setError('An unexpected error occurred. Please try again.')
       setLoading(false)
     }
+  }
+
+  // Show loading state while checking authentication
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-blue-50">
+        <div className="text-center">
+          <div className="animate-spin h-8 w-8 border-2 border-purple-600 border-t-transparent rounded-full mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -90,6 +133,7 @@ export default function SignInPage() {
                     onChange={(e) => setEmail(e.target.value)}
                     className="pl-10"
                     required
+                    disabled={loading}
                   />
                 </div>
               </div>
@@ -108,6 +152,7 @@ export default function SignInPage() {
                     onChange={(e) => setPassword(e.target.value)}
                     className="pl-10"
                     required
+                    disabled={loading}
                   />
                 </div>
               </div>

@@ -8,78 +8,85 @@ export async function middleware(request: NextRequest) {
     },
   })
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return request.cookies.get(name)?.value
+  try {
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name: string) {
+            return request.cookies.get(name)?.value
+          },
+          set(name: string, value: string, options: any) {
+            request.cookies.set({
+              name,
+              value,
+              ...options,
+            })
+            response = NextResponse.next({
+              request: {
+                headers: request.headers,
+              },
+            })
+            response.cookies.set({
+              name,
+              value,
+              ...options,
+            })
+          },
+          remove(name: string, options: any) {
+            request.cookies.set({
+              name,
+              value: '',
+              ...options,
+            })
+            response = NextResponse.next({
+              request: {
+                headers: request.headers,
+              },
+            })
+            response.cookies.set({
+              name,
+              value: '',
+              ...options,
+            })
+          },
         },
-        set(name: string, value: string, options: any) {
-          request.cookies.set({
-            name,
-            value,
-            ...options,
-          })
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
-          })
-          response.cookies.set({
-            name,
-            value,
-            ...options,
-          })
-        },
-        remove(name: string, options: any) {
-          request.cookies.set({
-            name,
-            value: '',
-            ...options,
-          })
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
-          })
-          response.cookies.set({
-            name,
-            value: '',
-            ...options,
-          })
-        },
-      },
+      }
+    )
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    // Protected routes that require authentication
+    const protectedRoutes = ['/dashboard', '/profile']
+    const authRoutes = ['/auth/signin', '/auth/signup']
+    
+    const isProtectedRoute = protectedRoutes.some(route => 
+      request.nextUrl.pathname.startsWith(route)
+    )
+    const isAuthRoute = authRoutes.some(route => 
+      request.nextUrl.pathname.startsWith(route)
+    )
+
+    // Redirect unauthenticated users from protected routes to signin
+    if (isProtectedRoute && !user) {
+      return NextResponse.redirect(new URL('/auth/signin', request.url))
     }
-  )
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+    // Redirect authenticated users from auth routes to dashboard
+    if (isAuthRoute && user) {
+      return NextResponse.redirect(new URL('/dashboard', request.url))
+    }
 
-  // Protected routes that require authentication
-  const protectedRoutes = ['/dashboard', '/profile']
-  const authRoutes = ['/auth/signin', '/auth/signup']
-  
-  const isProtectedRoute = protectedRoutes.some(route => 
-    request.nextUrl.pathname.startsWith(route)
-  )
-  const isAuthRoute = authRoutes.some(route => 
-    request.nextUrl.pathname.startsWith(route)
-  )
-
-  // Redirect unauthenticated users from protected routes to signin
-  if (isProtectedRoute && !user) {
-    return NextResponse.redirect(new URL('/auth/signin', request.url))
+    return response
+  } catch (error) {
+    console.error('Middleware error:', error)
+    // If there's an error with auth check, allow the request to proceed
+    // This prevents the app from breaking if Supabase is temporarily unavailable
+    return response
   }
-
-  // Redirect authenticated users from auth routes to dashboard
-  if (isAuthRoute && user) {
-    return NextResponse.redirect(new URL('/dashboard', request.url))
-  }
-
-  return response
 }
 
 export const config = {

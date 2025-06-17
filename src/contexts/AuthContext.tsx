@@ -144,13 +144,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signIn = async (email: string, password: string) => {
     setLoading(true)
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       })
-      return { error }
-    } finally {
-      // Don't set loading to false here - let the auth state change handle it
+      
+      if (error) {
+        setLoading(false)
+        return { error }
+      }
+      
+      // If successful, update state immediately for faster UI response
+      if (data.session && data.user) {
+        setSession(data.session)
+        setUser(data.user)
+        setLoading(false)
+      }
+      
+      return { error: null }
+    } catch (err) {
+      setLoading(false)
+      return { error: err }
     }
   }
 
