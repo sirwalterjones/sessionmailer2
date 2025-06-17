@@ -92,17 +92,18 @@ export default function Dashboard({
   const [primaryColor, setPrimaryColor] = useState("#7851a9");
   const [secondaryColor, setSecondaryColor] = useState("#6a4c96");
   const [headingTextColor, setHeadingTextColor] = useState("#1F2937");
-  const [paragraphTextColor, setParagraphTextColor] = useState("#6B7280");
+  const [paragraphTextColor, setParagraphTextColor] = useState("#000000");
   
   // Font customization state
-  const [headingFont, setHeadingFont] = useState("Playfair Display");
-  const [paragraphFont, setParagraphFont] = useState("Georgia");
-  const [headingFontSize, setHeadingFontSize] = useState(28);
+  const [headingFont, setHeadingFont] = useState("Inter");
+  const [paragraphFont, setParagraphFont] = useState("Inter");
+  const [headingFontSize, setHeadingFontSize] = useState(24);
   const [paragraphFontSize, setParagraphFontSize] = useState(16);
   
   // Hero image customization state - now per session
   const [sessionHeroImages, setSessionHeroImages] = useState<Record<string, string>>({});
   const [forceUpdate, setForceUpdate] = useState(0);
+  const [isHeroImageUpdating, setIsHeroImageUpdating] = useState(false);
   
   // Available Google Fonts
   const googleFonts = [
@@ -549,6 +550,9 @@ export default function Dashboard({
   const handleHeroImageChange = async (imageUrl: string, sessionUrl?: string) => {
     console.log('DEBUG: Hero image change requested:', { imageUrl, sessionUrl });
     
+    // Set loading state for hero image update
+    setIsHeroImageUpdating(true);
+    
     let updatedHeroImages: Record<string, string>;
     
     if (sessionUrl) {
@@ -565,6 +569,7 @@ export default function Dashboard({
         console.log('DEBUG: Updated sessionHeroImages (single session):', updatedHeroImages);
       } else {
         console.warn('DEBUG: No session URL available for hero image change');
+        setIsHeroImageUpdating(false);
         return;
       }
     }
@@ -573,9 +578,13 @@ export default function Dashboard({
     setForceUpdate(prev => prev + 1);
     
     // Trigger preview update with the updated hero images state
-    setTimeout(() => {
+    setTimeout(async () => {
       console.log('DEBUG: Triggering preview update with updated state...');
-      updatePreviewWithHeroImages(updatedHeroImages);
+      try {
+        await updatePreviewWithHeroImages(updatedHeroImages);
+      } finally {
+        setIsHeroImageUpdating(false);
+      }
     }, 100);
   };
 
@@ -1563,6 +1572,9 @@ export default function Dashboard({
                                                 console.log('DEBUG: Found session:', session);
                                                 console.log('DEBUG: Session firstImage:', session?.firstImage);
                                                 
+                                                // Set loading state
+                                                setIsHeroImageUpdating(true);
+                                                
                                                 // Reset to the original hero image by removing the custom selection
                                                 // This will make it fall back to the default (firstImage)
                                                 const newImages = { ...sessionHeroImages };
@@ -1574,9 +1586,13 @@ export default function Dashboard({
                                                 setForceUpdate(prev => prev + 1);
                                                 
                                                 // Trigger preview update after reset with updated state
-                                                setTimeout(() => {
+                                                setTimeout(async () => {
                                                   console.log('DEBUG: Triggering preview update after reset...');
-                                                  updatePreviewWithHeroImages(newImages);
+                                                  try {
+                                                    await updatePreviewWithHeroImages(newImages);
+                                                  } finally {
+                                                    setIsHeroImageUpdating(false);
+                                                  }
                                                 }, 100);
                                               }}
                                               className="mt-2 text-xs border-blue-300 text-blue-600 hover:bg-blue-100"
@@ -1671,6 +1687,16 @@ export default function Dashboard({
                   </CardHeader>
                   <CardContent className="p-0 overflow-hidden">
                     <div className="border-2 border-gray-200 rounded-2xl h-[400px] sm:h-[500px] lg:h-[600px] overflow-auto relative bg-white shadow-inner">
+                      
+                      {/* Hero Image Loading Overlay */}
+                      {isHeroImageUpdating && (
+                        <div className="absolute inset-0 bg-white bg-opacity-90 backdrop-blur-sm z-10 flex items-center justify-center rounded-2xl">
+                          <div className="flex flex-col items-center gap-4">
+                            <div className="animate-spin rounded-full h-12 w-12 border-4 border-purple-500 border-t-transparent"></div>
+                            <p className="text-purple-600 font-medium">Updating hero image...</p>
+                          </div>
+                        </div>
+                      )}
                       
                       {isGenerated && (emailHtml || capturedHtml) ? (
                         <div className="h-full">
