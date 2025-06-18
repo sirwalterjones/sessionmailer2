@@ -13,10 +13,69 @@ function getSupabaseClient() {
   return createClient(supabaseUrl, supabaseKey);
 }
 
+async function ensureTableExists(supabase: any) {
+  try {
+    // Try to create the table if it doesn't exist
+    const { error } = await supabase.rpc('exec_sql', {
+      sql: `
+        CREATE TABLE IF NOT EXISTS shared_templates (
+            id TEXT PRIMARY KEY,
+            sessions JSONB NOT NULL,
+            email_html TEXT NOT NULL,
+            metadata JSONB DEFAULT '{}',
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+            expires_at TIMESTAMP WITH TIME ZONE,
+            user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+            views_count INTEGER DEFAULT 0,
+            is_public BOOLEAN DEFAULT true
+        );
+        
+        CREATE INDEX IF NOT EXISTS idx_shared_templates_user_id ON shared_templates(user_id);
+        CREATE INDEX IF NOT EXISTS idx_shared_templates_created_at ON shared_templates(created_at);
+        CREATE INDEX IF NOT EXISTS idx_shared_templates_expires_at ON shared_templates(expires_at);
+        
+        ALTER TABLE shared_templates ENABLE ROW LEVEL SECURITY;
+        
+        DROP POLICY IF EXISTS "Public shared templates are viewable by everyone" ON shared_templates;
+        CREATE POLICY "Public shared templates are viewable by everyone" ON shared_templates
+            FOR SELECT USING (is_public = true AND (expires_at IS NULL OR expires_at > NOW()));
+        
+        DROP POLICY IF EXISTS "Users can create shared templates" ON shared_templates;
+        CREATE POLICY "Users can create shared templates" ON shared_templates
+            FOR INSERT WITH CHECK (true);
+        
+        DROP POLICY IF EXISTS "Users can view their own shared templates" ON shared_templates;
+        CREATE POLICY "Users can view their own shared templates" ON shared_templates
+            FOR SELECT USING (auth.uid() = user_id);
+        
+        DROP POLICY IF EXISTS "Users can update their own shared templates" ON shared_templates;
+        CREATE POLICY "Users can update their own shared templates" ON shared_templates
+            FOR UPDATE USING (auth.uid() = user_id);
+        
+        DROP POLICY IF EXISTS "Users can delete their own shared templates" ON shared_templates;
+        CREATE POLICY "Users can delete their own shared templates" ON shared_templates
+            FOR DELETE USING (auth.uid() = user_id);
+      `
+    });
+    
+    if (error) {
+      console.log('Note: Could not create table via RPC (this is normal):', error.message);
+    }
+  } catch (err) {
+    console.log('Note: Could not create table via RPC (this is normal):', err);
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { sessions, emailHtml, metadata } = body;
+
+    console.log('Share API called with:', { 
+      sessionsCount: sessions?.length, 
+      emailHtmlLength: emailHtml?.length,
+      hasMetadata: !!metadata 
+    });
 
     if (!sessions || !emailHtml) {
       return NextResponse.json(
@@ -29,6 +88,8 @@ export async function POST(request: NextRequest) {
     const shareId = nanoid(12);
 
     const supabase = getSupabaseClient();
+
+    console.log('Attempting to insert shared template with ID:', shareId);
 
     // Store the shared content in the database
     const { data, error } = await supabase
@@ -46,22 +107,30 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       console.error('Error creating shared template:', error);
+      console.error('Error details:', {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code
+      });
       return NextResponse.json(
-        { error: 'Failed to create shared template' },
+        { error: 'Failed to create shared template', details: error.message },
         { status: 500 }
       );
     }
 
+    console.log('Successfully created shared template:', shareId);
+
     return NextResponse.json({
       success: true,
       shareId,
-      shareUrl: `${process.env.NEXTAUTH_URL}/share/${shareId}`,
+      shareUrl: `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/share/${shareId}`,
       data
     });
   } catch (error) {
     console.error('Error in share API:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }
