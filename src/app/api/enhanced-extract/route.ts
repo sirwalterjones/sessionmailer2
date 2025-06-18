@@ -19,9 +19,10 @@ interface SessionData {
 
 export async function POST(request: NextRequest) {
   let browser = null;
+  let requestBody: any;
   
   try {
-    const requestBody = await request.json();
+    requestBody = await request.json();
     const { 
       url: requestUrl, 
       urls: requestUrls, 
@@ -34,11 +35,11 @@ export async function POST(request: NextRequest) {
       headingFontSize = 28,
       paragraphFontSize = 16,
       headingTextColor = "#ffffff",
-      paragraphTextColor = "#333333"
+      paragraphTextColor = "#333333",
+      sessionHeroImages = {}
     } = requestBody;
     
     // Extract customization parameters if provided
-    const sessionHeroImages = customization?.sessionHeroImages || {};
     const finalPrimaryColor = customization?.primaryColor || primaryColor;
     const finalSecondaryColor = customization?.secondaryColor || secondaryColor;
     const finalHeadingFont = customization?.headingFont || headingFont;
@@ -92,11 +93,10 @@ export async function POST(request: NextRequest) {
       try {
         const page = await context.newPage();
         
-        console.log("Navigating to URL:", url);
-        
-        await page.goto(url, {
-          waitUntil: "networkidle",
-          timeout: 60000,
+        // Navigate to the URL
+        await page.goto(url, { 
+          waitUntil: 'networkidle', 
+          timeout: 30000 
         });
         
         // Wait for content to load

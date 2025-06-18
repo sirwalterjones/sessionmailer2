@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   Card,
@@ -44,6 +44,18 @@ import SavedProjects from "@/components/SavedProjects";
 import LoadingModal from "@/components/LoadingModal";
 import { SavedProject, ProjectCustomization } from "@/lib/supabase";
 
+interface CustomizationOptions {
+  primaryColor?: string;
+  secondaryColor?: string;
+  headingTextColor?: string;
+  paragraphTextColor?: string;
+  headingFont?: string;
+  paragraphFont?: string;
+  headingFontSize?: number;
+  paragraphFontSize?: number;
+  sessionHeroImages?: Record<string, string>;
+}
+
 interface DashboardProps {
   savedProjects?: Array<{
     id: string;
@@ -59,12 +71,13 @@ export default function Dashboard({
   const { user } = useAuth();
   // Replace single URL and multiple URLs state with an array of URLs
   const [urlInputs, setUrlInputs] = useState([
-    { id: 1, value: "https://book.usesession.com/s/tFMsifAt84" }
+    { id: 1, value: "" }
   ]);
   const [nextId, setNextId] = useState(2);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isGenerated, setIsGenerated] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [capturedHtml, setCapturedHtml] = useState("");
   const [rawHtml, setRawHtml] = useState("");
@@ -109,6 +122,7 @@ export default function Dashboard({
   
   // Hero image customization state - now per session
   const [sessionHeroImages, setSessionHeroImages] = useState<Record<string, string>>({});
+  const [availableImages, setAvailableImages] = useState<Array<{ url: string; source: string; sessionTitle?: string; sessionUrl?: string }>>([]);
   const [forceUpdate, setForceUpdate] = useState(0);
   const [isHeroImageUpdating, setIsHeroImageUpdating] = useState(false);
   
@@ -161,68 +175,137 @@ export default function Dashboard({
     ));
   };
 
-  const extractSessionData = async (urlInput: string | string[]) => {
+  // Default URLs for quick testing
+  const defaultUrls = [
+    // Remove the hardcoded test URL - users can enter their own URLs
+  ];
+
+  const extractSessionData = async (urls: string[], customOptions: CustomizationOptions = {}) => {
+    setIsLoading(true);
+    setError("");
+    
     try {
-      const requestBody = Array.isArray(urlInput)
-        ? { urls: urlInput, primaryColor, secondaryColor, headingTextColor, paragraphTextColor, headingFont, paragraphFont, headingFontSize, paragraphFontSize }
-        : { url: urlInput, primaryColor, secondaryColor, headingTextColor, paragraphTextColor, headingFont, paragraphFont, headingFontSize, paragraphFontSize };
+      const requestBody = {
+        urls: urls,
+        ...customOptions,
+        sessionHeroImages: sessionHeroImages
+      };
 
-      console.log("Sending request to API:", requestBody);
-
-      // Try the enhanced endpoint first
-      const response = await fetch("/api/enhanced-extract", {
-        method: "POST",
+      // Try enhanced extraction first
+      const response = await fetch('/api/enhanced-extract', {
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify(requestBody),
       });
 
-      console.log("API response status:", response.status);
-
-      if (!response.ok) {
-        // Fallback to lightweight endpoint if enhanced fails
-        console.log("Enhanced endpoint failed, trying lightweight fallback...");
-        const lightResponse = await fetch("/api/enhanced-extract-light", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(requestBody),
-        });
+      if (response.ok) {
+        const data = await response.json();
         
-        if (!lightResponse.ok) {
-          // Final fallback to original endpoint
-          console.log("Lightweight endpoint failed, trying original fallback...");
-          const fallbackResponse = await fetch("/api/extract-session", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify(requestBody),
+        if (data.success && data.sessions && Array.isArray(data.sessions)) {
+          
+          const sessionsWithImages = data.sessions.map((session: any, index: number) => {
+            const processedSession = {
+              url: session.url,
+              title: session.title || `Session ${index + 1}`,
+              html: session.enhancedEmailHtml || session.html || '',
+              firstImage: session.firstImage,
+              images: session.images || [],
+              rawHtml: session.rawHtmlWithButton || session.html || '',
+              error: session.error
+            };
+            
+            return processedSession;
           });
           
-          if (!fallbackResponse.ok) {
-            throw new Error("Failed to extract session data");
+          setSessions(sessionsWithImages);
+          
+          if (data.sessions.length > 0) {
+            setEmailHtml(data.sessions[0].enhancedEmailHtml || '');
+            setCapturedHtml(data.sessions[0].rawHtmlWithButton || data.sessions[0].html || '');
           }
-
-          const fallbackData = await fallbackResponse.json();
-          console.log("Original fallback API response:", fallbackData);
-          return fallbackData;
+          
+          setIsLoading(false);
+          return;
         }
-
-        const lightData = await lightResponse.json();
-        console.log("Lightweight API response:", lightData);
-        return lightData;
       }
+      
+      // Fallback to lightweight extraction
+      const lightResponse = await fetch('/api/enhanced-extract-light', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      });
 
-      const data = await response.json();
-      console.log("Enhanced API response success:", data.success);
-      console.log("Enhanced API response sessions count:", data.sessions?.length || 0);
-      return data;
+      if (lightResponse.ok) {
+        const lightData = await lightResponse.json();
+        
+        if (lightData.success && lightData.sessions && Array.isArray(lightData.sessions)) {
+          const sessionsWithImages = lightData.sessions.map((session: any, index: number) => ({
+            url: session.url,
+            title: session.title || `Session ${index + 1}`,
+            html: session.enhancedEmailHtml || session.html || '',
+            firstImage: session.firstImage,
+            images: session.images || [],
+            rawHtml: session.rawHtmlWithButton || session.html || '',
+            error: session.error
+          }));
+          
+          setSessions(sessionsWithImages);
+          
+          if (lightData.sessions.length > 0) {
+            setEmailHtml(lightData.sessions[0].enhancedEmailHtml || '');
+            setCapturedHtml(lightData.sessions[0].rawHtmlWithButton || lightData.sessions[0].html || '');
+          }
+          
+          setIsLoading(false);
+          return;
+        }
+      }
+      
+      // Final fallback to original extraction
+      const fallbackResponse = await fetch('/api/extract-session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ urls: urls }),
+      });
+
+      if (fallbackResponse.ok) {
+        const fallbackData = await fallbackResponse.json();
+        
+        if (fallbackData.success && fallbackData.sessions) {
+          const sessionsWithImages = fallbackData.sessions.map((session: any, index: number) => ({
+            url: session.url,
+            title: session.title || `Session ${index + 1}`,
+            html: session.html || '',
+            firstImage: session.firstImage,
+            images: session.images || [],
+            rawHtml: session.rawHtml || session.html || '',
+            error: session.error
+          }));
+          
+          setSessions(sessionsWithImages);
+          
+          if (fallbackData.sessions.length > 0) {
+            setEmailHtml(fallbackData.sessions[0].html || '');
+            setCapturedHtml(fallbackData.sessions[0].rawHtml || fallbackData.sessions[0].html || '');
+          }
+          
+          setIsLoading(false);
+          return;
+        }
+      }
+      
+      throw new Error('All extraction methods failed');
+      
     } catch (error) {
-      console.error("Error extracting session data:", error);
-      throw error;
+      setError(`Failed to extract session data: ${error}`);
+      setIsLoading(false);
     }
   };
 
@@ -246,27 +329,11 @@ export default function Dashboard({
       
       const data = await extractSessionData(urlInput);
 
-      console.log('DEBUG: Received data from extractSessionData:', data);
-      console.log('DEBUG: data.success:', data.success);
-      console.log('DEBUG: data.sessions:', data.sessions);
-      console.log('DEBUG: typeof data.sessions:', typeof data.sessions);
-      console.log('DEBUG: Array.isArray(data.sessions):', Array.isArray(data.sessions));
-
       if (data.success) {
         if (data.sessions && Array.isArray(data.sessions)) {
-          console.log('=== DEBUG: PROCESSING API SESSIONS ===');
-          console.log('DEBUG: Raw API sessions data:', JSON.stringify(data.sessions, null, 2));
-          console.log('DEBUG: Processing sessions from API, count:', data.sessions.length);
           
           // Ensure sessions include the images array from API response
           const sessionsWithImages = data.sessions.map((session: any, index: number) => {
-            console.log(`DEBUG: Raw session ${index + 1} data:`, {
-              url: session.url,
-              title: session.title,
-              images: session.images,
-              imagesCount: session.images?.length || 0,
-              firstImage: session.firstImage
-            });
             
             const processedSession = {
               url: session.url,
@@ -277,73 +344,32 @@ export default function Dashboard({
               error: session.error
             };
             
-            console.log(`DEBUG: Processed session ${index + 1}:`, processedSession);
             return processedSession;
           });
           
-          console.log('=== DEBUG: FINAL SESSIONS TO SET ===');
-          console.log('DEBUG: Final sessions data:', JSON.stringify(sessionsWithImages, null, 2));
-          console.log('DEBUG: About to call setSessions with', sessionsWithImages.length, 'sessions');
-          
           setSessions(sessionsWithImages);
-          console.log('DEBUG: setSessions called successfully');
-          console.log('=== END DEBUG ===');
           
           // Force a re-render to ensure the component updates
           setTimeout(() => {
-            console.log('DEBUG: Force update after setSessions');
             setForceUpdate(prev => prev + 1);
           }, 100);
           
-          if (data.sessions.length > 1) {
-            // Multiple sessions
-            setEmailHtml(data.emailHtml || "");
-            setCapturedHtml(data.emailHtml || "");
-            setRawHtml(data.rawHtml || "");
-            // Set first available image as selected hero image for each session
-            const newSessionHeroImages: Record<string, string> = {};
-            data.sessions.forEach((session: any) => {
-              if (session.firstImage) {
-                newSessionHeroImages[session.url] = session.firstImage;
-              }
-            });
-            setSessionHeroImages(newSessionHeroImages);
-          } else if (data.sessions.length === 1) {
-            // Single session
-            const session = data.sessions[0];
-            setEmailHtml(session.enhancedEmailHtml || data.emailHtml || "");
-            setCapturedHtml(session.enhancedEmailHtml || data.emailHtml || "");
-            setRawHtml(session.rawHtmlWithButton || data.rawHtml || "");
-            // Set the session's first image as selected hero image
-            if (session.firstImage) {
-              setSessionHeroImages({ [session.url]: session.firstImage });
-            }
+          // Set primary content for display
+          if (sessionsWithImages.length > 0) {
+            setEmailHtml(sessionsWithImages[0].html);
+            setCapturedHtml(sessionsWithImages[0].html);
           }
+          
+          setIsGenerated(true);
+          setHasUnsavedChanges(true);
         } else {
-          // Legacy single session response
-          setEmailHtml(data.emailHtml || "");
-          setCapturedHtml(data.emailHtml || "");
-          setRawHtml(data.rawHtml || "");
-          setSessions([{
-            url: validUrls[0],
-            title: data.title || "Session",
-            html: data.emailHtml || "",
-            firstImage: data.firstImage || null,
-            images: data.images || []
-          }]);
-          // Set the first image as selected hero image for legacy responses
-          if (data.firstImage) {
-            setSessionHeroImages({ [validUrls[0]]: data.firstImage });
-          }
+          throw new Error("No valid sessions found in response");
         }
-        
-        setIsGenerated(true);
       } else {
         throw new Error(data.error || "Failed to extract session data");
       }
     } catch (error) {
-      console.error("Error:", error);
-      setError(error instanceof Error ? error.message : "An error occurred");
+      setError(`Failed to extract session data: ${error}`);
     } finally {
       setIsGenerating(false);
     }
@@ -594,355 +620,160 @@ export default function Dashboard({
     }
   };
 
-  const handleHeroImageChange = async (imageUrl: string, sessionUrl?: string) => {
-    console.log('=== DEBUG: HERO IMAGE CHANGE START ===');
-    console.log('DEBUG: Hero image change requested:', { imageUrl, sessionUrl });
-    console.log('DEBUG: Current sessionHeroImages:', sessionHeroImages);
-    console.log('DEBUG: Sessions available:', sessions.map(s => ({ url: s.url, title: s.title })));
-    console.log('DEBUG: emailHtml exists:', !!emailHtml);
-    console.log('DEBUG: capturedHtml exists:', !!capturedHtml);
+  const handleHeroImageChange = (imageUrl: string, sessionUrl?: string) => {
     
-    // Set loading state for hero image update
-    setIsHeroImageUpdating(true);
-    
-    let updatedHeroImages: Record<string, string>;
+    let updatedHeroImages = { ...sessionHeroImages };
     
     if (sessionUrl) {
-      // Set hero image for specific session
-      updatedHeroImages = { ...sessionHeroImages, [sessionUrl]: imageUrl };
-      setSessionHeroImages(updatedHeroImages);
-      console.log('DEBUG: Updated sessionHeroImages for specific session:', updatedHeroImages);
-    } else {
-      // For single session or global, use the first session URL
-      const firstSessionUrl = sessions[0]?.url;
-      if (firstSessionUrl) {
-        updatedHeroImages = { ...sessionHeroImages, [firstSessionUrl]: imageUrl };
-        setSessionHeroImages(updatedHeroImages);
-        console.log('DEBUG: Updated sessionHeroImages for first session:', updatedHeroImages);
+      const session = sessions.find(s => s.url === sessionUrl);
+      if (session) {
+        updatedHeroImages[sessionUrl] = imageUrl;
+        
       } else {
-        console.warn('DEBUG: No session URL available for hero image change');
-        setIsHeroImageUpdating(false);
-        console.log('=== DEBUG: HERO IMAGE CHANGE ABORTED ===');
         return;
       }
+    } else if (sessions.length > 0) {
+      updatedHeroImages[sessions[0].url] = imageUrl;
+      
+    } else {
+      return;
     }
     
-    setHasUnsavedChanges(true);
-    setForceUpdate(prev => prev + 1);
+    setSessionHeroImages(updatedHeroImages);
     
-    // OPTIMIZATION: Immediate synchronous update instead of timeout
-    console.log('DEBUG: Triggering immediate preview update...');
-    try {
-      console.log('DEBUG: Calling updatePreviewWithHeroImages with:', updatedHeroImages);
-      await updatePreviewWithHeroImages(updatedHeroImages);
-      console.log('DEBUG: updatePreviewWithHeroImages completed successfully');
-    } catch (error) {
-      console.error('DEBUG: Error in updatePreviewWithHeroImages:', error);
-    } finally {
-      setIsHeroImageUpdating(false);
-      console.log('=== DEBUG: HERO IMAGE CHANGE END ===');
-    }
+    // Trigger immediate preview update
+    updatePreviewWithHeroImages(updatedHeroImages);
+    
   };
 
-  // State for available images
-  const [availableImages, setAvailableImages] = useState<Array<{url: string, source: string, sessionUrl: string, sessionTitle: string, isCurrentHero: boolean, isOriginalHero: boolean}>>([]);
-
-  // Update available images when sessions or sessionHeroImages change
-  useEffect(() => {
-    console.log('=== DEBUG: AVAILABLE IMAGES UPDATE ===');
-    console.log('DEBUG: sessions.length:', sessions.length);
-    console.log('DEBUG: Full sessions data:', JSON.stringify(sessions, null, 2));
+  const getAllAvailableImages = useCallback(() => {
     
-    const allImages: Array<{url: string, source: string, sessionUrl: string, sessionTitle: string, isCurrentHero: boolean, isOriginalHero: boolean}> = [];
+    const allImages: Array<{ url: string; source: string; sessionTitle?: string; sessionUrl?: string }> = [];
     
-    // SIMPLE APPROACH: Just get all images from sessions
     sessions.forEach((session, sessionIndex) => {
-      console.log(`DEBUG: Processing session ${sessionIndex + 1}:`, {
-        url: session.url,
-        title: session.title,
-        firstImage: session.firstImage,
-        imagesCount: session.images?.length || 0,
-        images: session.images
-      });
       
-      const sessionTitle = session.title || `Session ${sessionIndex + 1}`;
-      const currentHeroForSession = sessionHeroImages[session.url];
-      
-      // ALWAYS add the original hero image first if it exists
+      // Add the original hero image first (if it exists)
       if (session.firstImage) {
-        const isCurrentHero = currentHeroForSession === session.firstImage || !currentHeroForSession;
         allImages.push({
           url: session.firstImage,
-          source: 'Original Hero',
-          sessionUrl: session.url,
-          sessionTitle: sessionTitle,
-          isCurrentHero,
-          isOriginalHero: true
+          source: `${session.title || `Session ${sessionIndex + 1}`} (Original Hero)`,
+          sessionTitle: session.title,
+          sessionUrl: session.url
         });
-        console.log(`DEBUG: Added original hero image: ${session.firstImage}`);
+        
       }
       
-      // Then add all other images from the session (excluding the firstImage to avoid duplicates)
-      if (session.images && Array.isArray(session.images) && session.images.length > 0) {
-        session.images.forEach((imageUrl: string, imgIndex: number) => {
-          if (imageUrl && typeof imageUrl === 'string' && imageUrl !== session.firstImage) {
-            const isCurrentHero = currentHeroForSession === imageUrl;
-            
+      // Add other images from the session
+      if (session.images && Array.isArray(session.images)) {
+        session.images.forEach((imageUrl, imageIndex) => {
+          if (imageUrl && imageUrl !== session.firstImage && !allImages.some(img => img.url === imageUrl)) {
             allImages.push({
               url: imageUrl,
-              source: `Session Image ${imgIndex + 1}`,
-              sessionUrl: session.url,
-              sessionTitle: sessionTitle,
-              isCurrentHero,
-              isOriginalHero: false
+              source: `${session.title || `Session ${sessionIndex + 1}`} (Image ${imageIndex + 1})`,
+              sessionTitle: session.title,
+              sessionUrl: session.url
             });
           }
         });
       }
     });
     
-    // Only add fallback if NO images found at all
+    // Add fallback images if no session images found
     if (allImages.length === 0) {
-      console.log('DEBUG: No session images found, adding fallback images');
-      allImages.push(
+      
+      const fallbackImages = [
         {
           url: 'https://images.unsplash.com/photo-1606216794074-735e91aa2c92?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80',
-          source: 'Fallback Image 1',
-          sessionUrl: '',
-          sessionTitle: 'Fallback',
-          isCurrentHero: false,
-          isOriginalHero: false
+          source: 'Fallback Image 1'
         },
         {
           url: 'https://images.unsplash.com/photo-1542038784456-1ea8e935640e?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80',
-          source: 'Fallback Image 2',
-          sessionUrl: '',
-          sessionTitle: 'Fallback',
-          isCurrentHero: false,
-          isOriginalHero: false
+          source: 'Fallback Image 2'
         }
-      );
+      ];
+      
+      allImages.push(...fallbackImages);
     }
     
-    console.log(`DEBUG: FINAL RESULT - Found ${allImages.length} total images`);
-    console.log('DEBUG: Image URLs:', allImages.map(img => img.url));
-    console.log('DEBUG: Image details:', allImages.map(img => ({
-      url: img.url,
-      source: img.source,
-      sessionUrl: img.sessionUrl,
-      isCurrentHero: img.isCurrentHero,
-      isOriginalHero: img.isOriginalHero
-    })));
-    console.log('=== END DEBUG ===');
-    
-    setAvailableImages(allImages);
-  }, [sessions, sessionHeroImages, forceUpdate]);
-
-  // Track sessions state changes
-  useEffect(() => {
-    if (sessions.length > 0) {
-      console.log('DEBUG: Sessions loaded successfully:', sessions.length, 'sessions');
-      setForceUpdate(prev => prev + 1);
-    }
+    return allImages;
   }, [sessions]);
 
-  // Track available images changes
   useEffect(() => {
-    console.log('DEBUG: Available images updated:', availableImages.length, 'images');
-  }, [availableImages]);
+    if (sessions.length > 0) {
+      
+      const images = getAllAvailableImages();
+      setAvailableImages(images);
+      
+      updatePreviewWithHeroImages(sessionHeroImages);
+    }
+  }, [sessions, getAllAvailableImages, sessionHeroImages]);
 
-  // Fast client-side styling update - with optional hero images parameter to avoid state timing issues
-  const updatePreviewWithHeroImages = async (heroImages?: Record<string, string>) => {
-    const currentHeroImages = heroImages || sessionHeroImages;
-    console.log('DEBUG: updatePreviewWithHeroImages called');
-    console.log('DEBUG: emailHtml exists:', !!emailHtml);
-    console.log('DEBUG: capturedHtml exists:', !!capturedHtml);
-    console.log('DEBUG: currentHeroImages:', currentHeroImages);
+  const updatePreviewWithHeroImages = (currentHeroImages: Record<string, string>) => {
     
     if (!emailHtml && !capturedHtml) {
-      console.log('DEBUG: No HTML content, skipping update');
       return;
     }
     
-    setIsUpdating(true);
-    try {
-      // OPTIMIZATION: Skip expensive API call for hero image changes
-      // Instead, do fast client-side image replacement only
-      console.log('DEBUG: Using fast client-side hero image replacement');
-      
-      // Get the current HTML content for style-only updates
-      const currentHtml = emailHtml || capturedHtml;
-      
-      if (!currentHtml) {
-        console.warn('No HTML content available for preview update');
-        return;
-      }
+    if (sessions.length === 0) {
+      return;
+    }
+    
+    // Use fast client-side hero image replacement
+    let updatedEmailHtml = emailHtml;
+    let updatedCapturedHtml = capturedHtml;
+    
+    sessions.forEach((session) => {
+      const customHeroImage = currentHeroImages[session.url];
+      if (customHeroImage && session.firstImage && customHeroImage !== session.firstImage) {
+        const originalImage = session.firstImage;
         
-      // Create a comprehensive style injection with better targeting
-      const styleInjection = `
-          <style>
-            /* Ensure iframe content fits properly */
-            body {
-              margin: 0 !important;
-              padding: 0 !important;
-              box-sizing: border-box !important;
-              overflow-x: hidden !important;
-            }
-            
-            /* Override all heading styles - preserve backgrounds */
-            h1, h2, h3, h4, h5, h6, .heading, .title {
-              color: ${headingTextColor} !important;
-              font-family: '${headingFont}', serif !important;
-              font-size: ${headingFontSize}px !important;
-              line-height: 1.2 !important;
-              margin-bottom: 0.5em !important;
-              /* Preserve existing background colors and gradients */
-            }
-            
-            /* Specifically preserve heading backgrounds */
-            h1[style*="background"], h2[style*="background"], h3[style*="background"], 
-            h4[style*="background"], h5[style*="background"], h6[style*="background"],
-            .heading[style*="background"], .title[style*="background"] {
-              /* Keep original background styles intact */
-            }
-            
-            /* Override paragraph styles - more targeted */
-            p, .text, .content, .description {
-              color: ${paragraphTextColor} !important;
-              font-family: '${paragraphFont}', serif !important;
-              font-size: ${paragraphFontSize}px !important;
-              line-height: 1.5 !important;
-              margin-bottom: 1em !important;
-            }
-            
-            /* Target text content in divs and spans more carefully - exclude headings */
-            div:not([class*="container"]):not([class*="wrapper"]):not([class*="layout"]):not([class*="heading"]):not([class*="title"]) {
-              color: ${paragraphTextColor} !important;
-              font-family: '${paragraphFont}', serif !important;
-              font-size: ${paragraphFontSize}px !important;
-            }
-            
-            span:not([class*="icon"]):not([class*="button"]):not([class*="heading"]):not([class*="title"]) {
-              color: ${paragraphTextColor} !important;
-              font-family: '${paragraphFont}', serif !important;
-              font-size: ${paragraphFontSize}px !important;
-            }
-            
-            /* Override background colors */
-            .bg-primary, .primary-bg {
-              background-color: ${primaryColor} !important;
-            }
-            
-            .bg-secondary, .secondary-bg {
-              background-color: ${secondaryColor} !important;
-            }
-            
-            /* Override gradient backgrounds */
-            .gradient-bg, .bg-gradient {
-              background: linear-gradient(135deg, ${primaryColor} 0%, ${secondaryColor} 100%) !important;
-            }
-            
-            /* Override button colors */
-            .btn, .button, button {
-              background-color: ${primaryColor} !important;
-              border-color: ${primaryColor} !important;
-              color: white !important;
-              padding: 8px 16px !important;
-              border-radius: 4px !important;
-              text-decoration: none !important;
-              display: inline-block !important;
-            }
-            
-            .btn:hover, .button:hover, button:hover {
-              background-color: ${secondaryColor} !important;
-              border-color: ${secondaryColor} !important;
-            }
-            
-            /* Override link colors */
-            a {
-              color: ${primaryColor} !important;
-            }
-            
-            a:hover {
-              color: ${secondaryColor} !important;
-            }
-            
-            /* Ensure images and media fit properly */
-            img {
-              max-width: 100% !important;
-              height: auto !important;
-            }
-            
-            /* Prevent layout breaking */
-            * {
-              box-sizing: border-box !important;
-            }
-            
-            /* Ensure containers don't overflow */
-            .container, .wrapper, .content-wrapper {
-              max-width: 100% !important;
-              overflow-x: hidden !important;
-            }
-          </style>
-        `;
+        // Create patterns to match the original image in various contexts
+        const patterns = [
+          // Direct src attribute matches
+          new RegExp(`src=["']${originalImage.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}["']`, 'gi'),
+          // URL() in style attributes
+          new RegExp(`url\\(["']?${originalImage.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}["']?\\)`, 'gi'),
+          // Background-image properties
+          new RegExp(`background-image:\\s*url\\(["']?${originalImage.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}["']?\\)`, 'gi'),
+          // Data attributes
+          new RegExp(`data-src=["']${originalImage.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}["']`, 'gi'),
+        ];
         
-        let updatedHtml = currentHtml;
-        
-        // Remove any existing style injections
-        updatedHtml = updatedHtml.replace(/<style>[\s\S]*?\/\* Override all heading styles \*\/[\s\S]*?<\/style>/g, '');
-        
-        // Inject the new styles at the end of the head or beginning of body
-        if (updatedHtml.includes('</head>')) {
-          updatedHtml = updatedHtml.replace('</head>', `${styleInjection}</head>`);
-        } else if (updatedHtml.includes('<body')) {
-          updatedHtml = updatedHtml.replace(/(<body[^>]*>)/, `$1${styleInjection}`);
-        } else {
-          // If no head or body tags, prepend the styles
-          updatedHtml = styleInjection + updatedHtml;
-        }
-        
-        // Note: Removed problematic regex replacements that were affecting heading backgrounds
-        // The CSS injection above with !important declarations should handle all styling
-        
-        // Replace hero images for each session if custom ones are selected
-        sessions.forEach((session) => {
-          const customHeroImage = currentHeroImages[session.url];
-          const originalImage = session.firstImage;
+        patterns.forEach(pattern => {
+          const beforeReplace = updatedEmailHtml;
           
-          if (customHeroImage && originalImage && customHeroImage !== originalImage) {
-            console.log(`DEBUG: Replacing hero image for session ${session.url}`);
-            console.log(`DEBUG: Original: ${originalImage}`);
-            console.log(`DEBUG: New: ${customHeroImage}`);
-            
-            // Escape special regex characters in the original image URL
-            const originalImageEscaped = originalImage.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            
-            // Simple but effective: Replace ALL occurrences of the original image URL
-            // This will catch hero images regardless of their HTML structure
-            const globalReplacePattern = new RegExp(originalImageEscaped, 'g');
-            const beforeReplace = updatedHtml;
-            updatedHtml = updatedHtml.replace(globalReplacePattern, customHeroImage);
-            
-            if (updatedHtml !== beforeReplace) {
-              console.log(`DEBUG: Successfully replaced ${(beforeReplace.match(globalReplacePattern) || []).length} instance(s) of hero image for session:`, session.url);
-            } else {
-              console.warn(`DEBUG: No replacements made for session:`, session.url);
-            }
+          if (pattern.source.includes('src=')) {
+            updatedEmailHtml = updatedEmailHtml.replace(pattern, `src="${customHeroImage}"`);
+          } else if (pattern.source.includes('url(')) {
+            updatedEmailHtml = updatedEmailHtml.replace(pattern, `url("${customHeroImage}")`);
+          } else if (pattern.source.includes('background-image')) {
+            updatedEmailHtml = updatedEmailHtml.replace(pattern, `background-image: url("${customHeroImage}")`);
+          } else if (pattern.source.includes('data-src')) {
+            updatedEmailHtml = updatedEmailHtml.replace(pattern, `data-src="${customHeroImage}"`);
           }
+          
+          const globalReplacePattern = new RegExp(pattern.source, 'gi');
+          
         });
         
-        // Update the preview
-        setEmailHtml(updatedHtml);
-        setCapturedHtml(updatedHtml);
-        
-        // Clear the unsaved changes flag
-        setHasUnsavedChanges(false);
-        console.log('DEBUG: Fast hero image update completed');
-    } catch (error) {
-      console.error("Error updating preview:", error);
-    } finally {
-      setIsUpdating(false);
-    }
+        // Apply same replacements to captured HTML
+        patterns.forEach(pattern => {
+          if (pattern.source.includes('src=')) {
+            updatedCapturedHtml = updatedCapturedHtml.replace(pattern, `src="${customHeroImage}"`);
+          } else if (pattern.source.includes('url(')) {
+            updatedCapturedHtml = updatedCapturedHtml.replace(pattern, `url("${customHeroImage}")`);
+          } else if (pattern.source.includes('background-image')) {
+            updatedCapturedHtml = updatedCapturedHtml.replace(pattern, `background-image: url("${customHeroImage}")`);
+          } else if (pattern.source.includes('data-src')) {
+            updatedCapturedHtml = updatedCapturedHtml.replace(pattern, `data-src="${customHeroImage}"`);
+          }
+        });
+      }
+    });
+    
+    setEmailHtml(updatedEmailHtml);
+    setCapturedHtml(updatedCapturedHtml);
+    
   };
 
   // Wrapper function for backward compatibility
@@ -1020,6 +851,22 @@ export default function Dashboard({
       setError("Failed to create share link. Please try again.");
     } finally {
       setIsSharing(false);
+    }
+  };
+
+  const handleResetHeroImage = (sessionUrl: string) => {
+    
+    const session = sessions.find(s => s.url === sessionUrl);
+    
+    if (session) {
+      
+      // Remove the custom selection for this session
+      const updatedHeroImages = { ...sessionHeroImages };
+      delete updatedHeroImages[sessionUrl];
+      setSessionHeroImages(updatedHeroImages);
+      
+      // Trigger immediate preview update
+      updatePreviewWithHeroImages(updatedHeroImages);
     }
   };
 

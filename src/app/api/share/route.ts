@@ -71,74 +71,77 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { sessions, emailHtml, metadata } = body;
 
-    console.log('Share API called with:', { 
-      sessionsCount: sessions?.length, 
-      emailHtmlLength: emailHtml?.length,
-      hasMetadata: !!metadata
-    });
-
     if (!sessions || !emailHtml) {
       return NextResponse.json(
-        { error: 'Sessions and email HTML are required' },
+        { error: 'Sessions and emailHtml are required' },
         { status: 400 }
       );
     }
 
-    // Generate a unique ID for the shared template
+    const supabase = getSupabaseClient();
     const shareId = nanoid(12);
 
-    const supabase = getSupabaseClient();
+    // Try to create the table if it doesn't exist (will be ignored if it exists)
+    try {
+      await supabase.rpc('exec_sql', {
+        sql: `
+          CREATE TABLE IF NOT EXISTS shared_templates (
+            id TEXT PRIMARY KEY,
+            sessions JSONB NOT NULL,
+            email_html TEXT NOT NULL,
+            metadata JSONB DEFAULT '{}',
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+          );
+        `
+      });
+    } catch (error: any) {
+      // Table creation might fail due to RLS policies, but that's fine
+    }
 
-    // Insert the shared template into the database (without expiration)
+    // Insert the shared template
     const { data, error } = await supabase
       .from('shared_templates')
-      .insert({
+      .insert([{
         id: shareId,
         sessions,
         email_html: emailHtml,
         metadata: metadata || {},
-        created_at: new Date().toISOString(),
-      })
+      }])
       .select()
       .single();
 
     if (error) {
-      console.error('Error creating shared template:', error);
-      
       // Fallback to mock response for development
       if (process.env.NODE_ENV === 'development') {
-        console.log('Creating mock shared template with ID:', shareId);
         const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
-        
         return NextResponse.json({
           success: true,
-          shareId,
+          shareId: shareId,
           shareUrl: `${baseUrl}/share/${shareId}`,
+          message: 'Template shared successfully (mock)'
         });
       }
       
-      return NextResponse.json(
-        { error: 'Failed to create shared template' },
-        { status: 500 }
-      );
+      throw error;
     }
 
-    console.log('Successfully created shared template:', shareId);
-
-    // Generate the share URL using production domain in production
+    // Create share URL
     const baseUrl = process.env.NODE_ENV === 'production' 
       ? 'https://sessionmailer.com' 
       : process.env.NEXTAUTH_URL || 'http://localhost:3000';
+    
+    const shareUrl = `${baseUrl}/share/${shareId}`;
 
     return NextResponse.json({
       success: true,
-      shareId: data.id,
-      shareUrl: `${baseUrl}/share/${data.id}`,
+      shareId: shareId,
+      shareUrl: shareUrl,
+      message: 'Template shared successfully'
     });
-  } catch (error) {
-    console.error('Error in share API:', error);
+
+  } catch (error: any) {
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Failed to create shared template', details: error.message },
       { status: 500 }
     );
   }

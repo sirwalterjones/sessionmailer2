@@ -1,189 +1,98 @@
 import { NextRequest, NextResponse } from "next/server";
 import { chromium } from "playwright";
 
-function extractFirstImage(html: string): string | null {
-  console.log("Starting image extraction...");
-
-  // First, try to find meta tag with name="image" (most specific)
-  const exactImageMatch = html.match(
-    /<meta\s+name=["']image["']\s+content=["']([^"']+)["'][^>]*>/i,
-  );
+function extractFirstImageFromHtml(html: string): string | null {
+  
+  // Meta tag patterns (highest priority)
+  const exactImageMatch = html.match(/<meta\s+name=["']image["']\s+content=["']([^"']+)["']/i);
   if (exactImageMatch && exactImageMatch[1]) {
-    console.log("Found exact meta name=image tag:", exactImageMatch[1]);
     return exactImageMatch[1];
   }
 
-  // Try reverse order (content first, then name)
-  const reverseImageMatch = html.match(
-    /<meta\s+content=["']([^"']+)["']\s+name=["']image["'][^>]*>/i,
-  );
+  const reverseImageMatch = html.match(/<meta\s+content=["']([^"']+)["']\s+name=["']image["']/i);
   if (reverseImageMatch && reverseImageMatch[1]) {
-    console.log("Found reverse meta name=image tag:", reverseImageMatch[1]);
     return reverseImageMatch[1];
   }
 
-  // Try with any attributes in between
-  const flexibleImageMatch = html.match(
-    /<meta[^>]*name=["']image["'][^>]*content=["']([^"']+)["'][^>]*>/i,
-  );
+  const flexibleImageMatch = html.match(/<meta[^>]*name=["'][^"']*image[^"']*["'][^>]*content=["']([^"']+)["']/i);
   if (flexibleImageMatch && flexibleImageMatch[1]) {
-    console.log("Found flexible meta name=image tag:", flexibleImageMatch[1]);
     return flexibleImageMatch[1];
   }
 
-  // Try with content first, flexible attributes
-  const flexibleReverseMatch = html.match(
-    /<meta[^>]*content=["']([^"']+)["'][^>]*name=["']image["'][^>]*>/i,
-  );
-  if (flexibleReverseMatch && flexibleReverseMatch[1]) {
-    console.log(
-      "Found flexible reverse meta name=image tag:",
-      flexibleReverseMatch[1],
-    );
-    return flexibleReverseMatch[1];
-  }
-
-  // Try og:image as high priority backup
-  const ogImageMatch = html.match(
-    /<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["'][^>]*>/i,
-  );
+  const ogImageMatch = html.match(/<meta\s+(?:property|name)=["']og:image["']\s+content=["']([^"']+)["']/i);
   if (ogImageMatch && ogImageMatch[1]) {
-    console.log("Found og:image tag:", ogImageMatch[1]);
     return ogImageMatch[1];
   }
 
-  // Try twitter:image
-  const twitterImageMatch = html.match(
-    /<meta[^>]*name=["']twitter:image["'][^>]*content=["']([^"']+)["'][^>]*>/i,
-  );
+  const twitterImageMatch = html.match(/<meta\s+(?:property|name)=["']twitter:image["']\s+content=["']([^"']+)["']/i);
   if (twitterImageMatch && twitterImageMatch[1]) {
-    console.log("Found twitter:image tag:", twitterImageMatch[1]);
     return twitterImageMatch[1];
   }
 
-  // Look for any meta tag containing "image" in the name attribute
-  const anyImageMetaMatch = html.match(
-    /<meta[^>]*name=["'][^"']*image[^"']*["'][^>]*content=["']([^"']+)["'][^>]*>/gi,
-  );
-  if (anyImageMetaMatch) {
-    console.log("Found meta tags with 'image' in name:", anyImageMetaMatch);
-    for (const match of anyImageMetaMatch) {
-      const contentMatch = match.match(/content=["']([^"']+)["']/i);
-      if (contentMatch && contentMatch[1]) {
-        console.log(
-          "Extracted image from meta tag with 'image':",
-          contentMatch[1],
-        );
-        return contentMatch[1];
-      }
-    }
+  // Look for any meta tags with 'image' in the name
+  const anyImageMetaMatch = html.match(/<meta[^>]*name=["'][^"']*image[^"']*["'][^>]*content=["']([^"']+)["']/i);
+  if (anyImageMetaMatch && anyImageMetaMatch[1]) {
+    return anyImageMetaMatch[1];
   }
 
-  // Look for the largest/most prominent image in the page
+  // Parse img tags and score them
   const imgMatches = html.match(/<img[^>]+>/gi);
-  if (imgMatches) {
-    let bestImage = null;
-    let bestScore = 0;
-
-    console.log(`Found ${imgMatches.length} img tags, analyzing...`);
-
-    for (const imgTag of imgMatches) {
-      const srcMatch = imgTag.match(/src=["']([^"']+)["']/i);
-      if (srcMatch && srcMatch[1]) {
-        const src = srcMatch[1];
-        const srcLower = src.toLowerCase();
-        let score = 0;
-
-        // Skip obvious non-hero images
-        if (
-          srcLower.includes("logo") ||
-          srcLower.includes("brand") ||
-          srcLower.includes("icon") ||
-          srcLower.includes("avatar") ||
-          srcLower.includes("profile") ||
-          srcLower.includes("thumb") ||
-          srcLower.includes("small") ||
-          srcLower.includes("mini") ||
-          srcLower.includes("button")
-        ) {
-          console.log("Skipping non-hero image:", src);
-          continue;
-        }
-
-        // Boost score for images that look like hero images
-        if (
-          srcLower.includes("hero") ||
-          srcLower.includes("banner") ||
-          srcLower.includes("cover") ||
-          srcLower.includes("-lg") || // Large image indicator
-          srcLower.includes("_lg") ||
-          srcLower.includes("large")
-        ) {
-          score += 100;
-          console.log("Hero image boost for:", src);
-        }
-
-        // Boost score for CDN images (often high quality)
-        if (
-          srcLower.includes("cdn") ||
-          srcLower.includes("digitalocean") ||
-          srcLower.includes("amazonaws") ||
-          srcLower.includes("cloudfront")
-        ) {
-          score += 50;
-          console.log("CDN image boost for:", src);
-        }
-
-        // Boost score for larger dimensions mentioned in attributes
-        const widthMatch = imgTag.match(/width=["']?(\d+)["']?/i);
-        const heightMatch = imgTag.match(/height=["']?(\d+)["']?/i);
-        if (widthMatch) {
-          const width = parseInt(widthMatch[1]);
-          score += Math.min(width / 10, 50); // Cap the width bonus
-        }
-        if (heightMatch) {
-          const height = parseInt(heightMatch[1]);
-          score += Math.min(height / 10, 50); // Cap the height bonus
-        }
-
-        // Boost score for images with certain classes that suggest importance
-        if (imgTag.includes("class=")) {
-          const classMatch = imgTag.match(/class=["']([^"']+)["']/i);
-          if (classMatch && classMatch[1]) {
-            const classes = classMatch[1].toLowerCase();
-            if (
-              classes.includes("hero") ||
-              classes.includes("banner") ||
-              classes.includes("cover") ||
-              classes.includes("main") ||
-              classes.includes("featured")
-            ) {
-              score += 75;
-              console.log("Class boost for:", src, "classes:", classes);
-            }
-          }
-        }
-
-        // Default score for any valid image
-        score += 10;
-
-        console.log(`Image: ${src} - Score: ${score}`);
-
-        if (score > bestScore) {
-          bestScore = score;
-          bestImage = src;
-        }
-      }
-    }
-
-    if (bestImage) {
-      console.log("Selected best image with score", bestScore, ":", bestImage);
-      return bestImage;
-    }
+  if (!imgMatches) {
+    return null;
   }
 
-  console.log("No suitable image found in HTML");
-  return null;
+  let bestImage = null;
+  let bestScore = 0;
+
+  imgMatches.forEach((imgTag) => {
+    const srcMatch = imgTag.match(/src=["']([^"']+)["']/i);
+    if (!srcMatch) return;
+
+    const src = srcMatch[1];
+    const alt = imgTag.match(/alt=["']([^"']*)["']/i)?.[1] || '';
+    const classes = imgTag.match(/class=["']([^"']*)["']/i)?.[1] || '';
+
+    // Skip obvious non-hero images
+    if (src.includes('logo') || src.includes('icon') || src.includes('avatar') || 
+        src.includes('thumb') || src.includes('small') || alt.toLowerCase().includes('logo')) {
+      return;
+    }
+
+    let score = 0;
+
+    // Hero image indicators (high score)
+    if (classes.includes('hero') || classes.includes('main') || classes.includes('featured') ||
+        classes.includes('banner') || classes.includes('cover') || alt.toLowerCase().includes('hero')) {
+      score += 100;
+    }
+
+    // CDN or high-quality image indicators
+    if (src.includes('unsplash') || src.includes('pexels') || src.includes('shutterstock') ||
+        src.includes('cdn') || src.includes('cloudinary')) {
+      score += 50;
+    }
+
+    // Size hints in URL
+    if (src.includes('1200') || src.includes('1920') || src.includes('large') || 
+        src.includes('full') || src.includes('original')) {
+      score += 30;
+    }
+
+    // Position in DOM (earlier = higher score)
+    score += Math.max(0, 50 - imgMatches.indexOf(imgTag));
+
+    // Class-based scoring
+    if (classes.includes('large') || classes.includes('big') || classes.includes('primary')) {
+      score += 20;
+    }
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestImage = src;
+    }
+  });
+
+  return bestImage;
 }
 
 function extractTextContent(html: string): {
@@ -541,8 +450,6 @@ export async function POST(request: NextRequest) {
     const urlsToProcess =
       requestUrls && Array.isArray(requestUrls) ? requestUrls : [requestUrl];
 
-    console.log("Processing URLs:", urlsToProcess);
-
     // Validate URLs
     for (const url of urlsToProcess) {
       if (!url || !url.includes("usesession.com")) {
@@ -567,74 +474,42 @@ export async function POST(request: NextRequest) {
 
     const sessions = [];
 
-    // Process each URL
     for (const url of urlsToProcess) {
       try {
         const page = await context.newPage();
 
-        console.log("Navigating to URL:", url);
+        // Navigate to URL
+        await page.goto(url, { waitUntil: "networkidle", timeout: 30000 });
 
-        // Navigate to the page and wait for it to fully load
-        await page.goto(url, {
-          waitUntil: "networkidle",
-          timeout: 60000,
-        });
-
-        // Wait for dynamic content and ensure JavaScript has fully rendered
-        console.log("Waiting for dynamic content to load...");
-        await page.waitForTimeout(12000);
-
-        // Wait for images to load
-        await page.waitForLoadState("networkidle");
-
-        // Additional wait to ensure all dynamic content is rendered
+        // Wait for content to load
         await page.waitForTimeout(3000);
 
-        console.log("Capturing full page HTML with enhanced visual processing...");
-
-        // Use the new enhanced capture method
+        // Get enhanced email HTML
         const enhancedEmailHtml = await capturePageAsEmailHtml(page, url);
 
-        // Also get the traditional HTML for fallback
-        const fullHtml = await page.content();
-        
-        // Also get the page title for reference
+        // Get page title
         const pageTitle = await page.title();
 
-        // Extract first image
-        const firstImage = extractFirstImage(fullHtml);
-        console.log("Raw extracted image:", firstImage);
+        // Get full HTML content
+        const fullHtml = await page.content();
 
-        // Convert relative image URL to absolute if needed
+        // Extract first image
+        const firstImage = extractFirstImageFromHtml(fullHtml);
+
         let absoluteImageUrl = firstImage;
         if (firstImage) {
           if (firstImage.startsWith("/")) {
             const domain = new URL(url).origin;
             absoluteImageUrl = domain + firstImage;
-            console.log(
-              "Converted relative URL to absolute:",
-              absoluteImageUrl,
-            );
           } else if (firstImage.startsWith("//")) {
             // Protocol-relative URL
             absoluteImageUrl = "https:" + firstImage;
-            console.log("Added protocol to URL:", absoluteImageUrl);
           } else if (!firstImage.startsWith("http")) {
             // Relative path without leading slash
             const domain = new URL(url).origin;
             absoluteImageUrl = domain + "/" + firstImage;
-            console.log(
-              "Converted relative path to absolute:",
-              absoluteImageUrl,
-            );
           }
         }
-
-        console.log(
-          `HTML captured successfully for ${url}, length:`,
-          fullHtml.length,
-        );
-        console.log(`First image found: ${absoluteImageUrl}`);
 
         // Create raw HTML with Book Now button for copying
         const rawHtmlWithButton = fullHtml.replace(
@@ -657,7 +532,6 @@ export async function POST(request: NextRequest) {
 
         await page.close();
       } catch (error) {
-        console.error(`Error processing URL ${url}:`, error);
         sessions.push({
           url,
           title: `Error loading ${url}`,
@@ -708,25 +582,16 @@ export async function POST(request: NextRequest) {
       rawHtml,
     });
   } catch (error) {
-    console.error("Error capturing pages:", error);
-
     return NextResponse.json(
       {
         success: false,
-        error: "Failed to capture page content",
-        details: (error as Error).message,
+        error: `Failed to extract session data: ${(error as Error).message}`,
       },
       { status: 500 },
     );
   } finally {
-    // Always close the browser
     if (browser) {
-      try {
-        await browser.close();
-        console.log("Browser closed successfully");
-      } catch (closeError) {
-        console.error("Error closing browser:", closeError);
-      }
+      await browser.close();
     }
   }
 }
