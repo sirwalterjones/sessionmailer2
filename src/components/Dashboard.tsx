@@ -1806,7 +1806,7 @@ export default function Dashboard({
                               </Button>
                             </div>
                           </div>
-                          <p className="text-green-600 text-xs mt-1">Link expires in 30 days</p>
+                          <p className="text-green-600 text-xs mt-1">Share with your clients!</p>
                         </div>
                         <Button
                           size="sm"

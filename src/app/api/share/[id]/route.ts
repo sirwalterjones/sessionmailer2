@@ -43,14 +43,6 @@ export async function GET(
       );
     }
 
-    // Check if the template has expired
-    if (data.expires_at && new Date(data.expires_at) < new Date()) {
-      return NextResponse.json(
-        { error: 'Shared template has expired' },
-        { status: 410 }
-      );
-    }
-
     // Return the template data
     return NextResponse.json({
       success: true,
@@ -59,7 +51,6 @@ export async function GET(
       emailHtml: data.email_html,
       metadata: data.metadata,
       createdAt: data.created_at,
-      expiresAt: data.expires_at,
     });
   } catch (error) {
     console.error('Error in share/[id] API:', error);

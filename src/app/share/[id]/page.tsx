@@ -1,6 +1,6 @@
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import SharePage from '@/components/SharePage';
+import SharePage from '../../../components/SharePage';
 
 interface SharePageProps {
   params: { id: string };
@@ -9,8 +9,13 @@ interface SharePageProps {
 // Generate metadata for Open Graph sharing
 export async function generateMetadata({ params }: SharePageProps): Promise<Metadata> {
   try {
+    // Use the same URL logic as the share API
+    const baseUrl = process.env.NODE_ENV === 'production' 
+      ? 'https://sessionmailer.com' 
+      : process.env.NEXTAUTH_URL || 'http://localhost:3000';
+    
     // Fetch the shared content data
-    const response = await fetch(`${process.env.NEXTAUTH_URL}/api/share/${params.id}`, {
+    const response = await fetch(`${baseUrl}/api/share/${params.id}`, {
       cache: 'no-store'
     });
     
@@ -70,8 +75,13 @@ export async function generateMetadata({ params }: SharePageProps): Promise<Meta
 
 export default async function Page({ params }: SharePageProps) {
   try {
+    // Use the same URL logic as the share API
+    const baseUrl = process.env.NODE_ENV === 'production' 
+      ? 'https://sessionmailer.com' 
+      : process.env.NEXTAUTH_URL || 'http://localhost:3000';
+    
     // Fetch the shared content data
-    const response = await fetch(`${process.env.NEXTAUTH_URL}/api/share/${params.id}`, {
+    const response = await fetch(`${baseUrl}/api/share/${params.id}`, {
       cache: 'no-store'
     });
     

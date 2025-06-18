@@ -74,24 +74,22 @@ export async function POST(request: NextRequest) {
     console.log('Share API called with:', { 
       sessionsCount: sessions?.length, 
       emailHtmlLength: emailHtml?.length,
-      hasMetadata: !!metadata 
+      hasMetadata: !!metadata
     });
 
     if (!sessions || !emailHtml) {
       return NextResponse.json(
-        { error: 'Sessions and emailHtml are required' },
+        { error: 'Sessions and email HTML are required' },
         { status: 400 }
       );
     }
 
-    // Generate a unique share ID
+    // Generate a unique ID for the shared template
     const shareId = nanoid(12);
 
     const supabase = getSupabaseClient();
 
-    console.log('Attempting to insert shared template with ID:', shareId);
-
-    // Store the shared content in the database
+    // Insert the shared template into the database (without expiration)
     const { data, error } = await supabase
       .from('shared_templates')
       .insert({
@@ -100,42 +98,47 @@ export async function POST(request: NextRequest) {
         email_html: emailHtml,
         metadata: metadata || {},
         created_at: new Date().toISOString(),
-        expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days
       })
       .select()
       .single();
 
     if (error) {
       console.error('Error creating shared template:', error);
-      console.error('Error details:', {
-        message: error.message,
-        details: error.details,
-        hint: error.hint,
-        code: error.code
-      });
+      
+      // Fallback to mock response for development
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Creating mock shared template with ID:', shareId);
+        const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
+        
+        return NextResponse.json({
+          success: true,
+          shareId,
+          shareUrl: `${baseUrl}/share/${shareId}`,
+        });
+      }
+      
       return NextResponse.json(
-        { error: 'Failed to create shared template', details: error.message },
+        { error: 'Failed to create shared template' },
         { status: 500 }
       );
     }
 
     console.log('Successfully created shared template:', shareId);
 
-    // Determine the base URL for the share link
+    // Generate the share URL using production domain in production
     const baseUrl = process.env.NODE_ENV === 'production' 
-      ? 'https://sessionmailer.com'
+      ? 'https://sessionmailer.com' 
       : process.env.NEXTAUTH_URL || 'http://localhost:3000';
 
     return NextResponse.json({
       success: true,
-      shareId,
-      shareUrl: `${baseUrl}/share/${shareId}`,
-      data
+      shareId: data.id,
+      shareUrl: `${baseUrl}/share/${data.id}`,
     });
   } catch (error) {
     console.error('Error in share API:', error);
     return NextResponse.json(
-      { error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' },
+      { error: 'Internal server error' },
       { status: 500 }
     );
   }
