@@ -324,50 +324,13 @@ export default function Dashboard({
         throw new Error("Please enter at least one valid URL");
       }
 
-      // Use single URL or multiple URLs based on count
-      const urlInput = validUrls.length === 1 ? validUrls[0] : validUrls;
+      // extractSessionData handles all state updates internally
+      await extractSessionData(validUrls);
       
-      const data = await extractSessionData(urlInput);
-
-      if (data.success) {
-        if (data.sessions && Array.isArray(data.sessions)) {
-          
-          // Ensure sessions include the images array from API response
-          const sessionsWithImages = data.sessions.map((session: any, index: number) => {
-            
-            const processedSession = {
-              url: session.url,
-              title: session.title,
-              html: session.html || session.enhancedEmailHtml || "",
-              firstImage: session.firstImage,
-              images: session.images || [],
-              error: session.error
-            };
-            
-            return processedSession;
-          });
-          
-          setSessions(sessionsWithImages);
-          
-          // Force a re-render to ensure the component updates
-          setTimeout(() => {
-            setForceUpdate(prev => prev + 1);
-          }, 100);
-          
-          // Set primary content for display
-          if (sessionsWithImages.length > 0) {
-            setEmailHtml(sessionsWithImages[0].html);
-            setCapturedHtml(sessionsWithImages[0].html);
-          }
-          
-          setIsGenerated(true);
-          setHasUnsavedChanges(true);
-        } else {
-          throw new Error("No valid sessions found in response");
-        }
-      } else {
-        throw new Error(data.error || "Failed to extract session data");
-      }
+      // Set generated state
+      setIsGenerated(true);
+      setHasUnsavedChanges(true);
+      
     } catch (error) {
       setError(`Failed to extract session data: ${error}`);
     } finally {
@@ -553,7 +516,7 @@ export default function Dashboard({
     if (isGenerated) {
       setHasUnsavedChanges(true);
       // Immediate preview update with new color
-      updatePreviewWithHeroImages();
+      updatePreviewWithHeroImages(sessionHeroImages);
     }
   };
 
@@ -562,7 +525,7 @@ export default function Dashboard({
     if (isGenerated) {
       setHasUnsavedChanges(true);
       // Immediate preview update with new color
-      updatePreviewWithHeroImages();
+      updatePreviewWithHeroImages(sessionHeroImages);
     }
   };
 
@@ -571,7 +534,7 @@ export default function Dashboard({
     if (isGenerated) {
       setHasUnsavedChanges(true);
       // Immediate preview update with new color
-      updatePreviewWithHeroImages();
+      updatePreviewWithHeroImages(sessionHeroImages);
     }
   };
 
@@ -580,7 +543,7 @@ export default function Dashboard({
     if (isGenerated) {
       setHasUnsavedChanges(true);
       // Immediate preview update with new color
-      updatePreviewWithHeroImages();
+      updatePreviewWithHeroImages(sessionHeroImages);
     }
   };
 
@@ -589,7 +552,7 @@ export default function Dashboard({
     if (isGenerated) {
       setHasUnsavedChanges(true);
       // Immediate preview update with new font
-      updatePreviewWithHeroImages();
+      updatePreviewWithHeroImages(sessionHeroImages);
     }
   };
 
@@ -598,7 +561,7 @@ export default function Dashboard({
     if (isGenerated) {
       setHasUnsavedChanges(true);
       // Immediate preview update with new font
-      updatePreviewWithHeroImages();
+      updatePreviewWithHeroImages(sessionHeroImages);
     }
   };
 
@@ -607,7 +570,7 @@ export default function Dashboard({
     if (isGenerated) {
       setHasUnsavedChanges(true);
       // Immediate preview update with new font size
-      updatePreviewWithHeroImages();
+      updatePreviewWithHeroImages(sessionHeroImages);
     }
   };
 
@@ -616,7 +579,7 @@ export default function Dashboard({
     if (isGenerated) {
       setHasUnsavedChanges(true);
       // Immediate preview update with new font size
-      updatePreviewWithHeroImages();
+      updatePreviewWithHeroImages(sessionHeroImages);
     }
   };
 
@@ -778,7 +741,7 @@ export default function Dashboard({
 
   // Wrapper function for backward compatibility
   const updatePreview = async () => {
-    await updatePreviewWithHeroImages();
+    updatePreviewWithHeroImages(sessionHeroImages);
   };
 
   // Note: Removed automatic preview updates to improve performance
@@ -1495,10 +1458,7 @@ export default function Dashboard({
                                               variant="outline"
                                               size="sm"
                                               onClick={async () => {
-                                                console.log('DEBUG: Reset button clicked for session:', sessionUrl);
                                                 const session = sessions.find(s => s.url === sessionUrl);
-                                                console.log('DEBUG: Found session:', session);
-                                                console.log('DEBUG: Session firstImage:', session?.firstImage);
                                                 
                                                 // Set loading state
                                                 setIsHeroImageUpdating(true);
@@ -1508,13 +1468,11 @@ export default function Dashboard({
                                                 const newImages = { ...sessionHeroImages };
                                                 delete newImages[sessionUrl];
                                                 setSessionHeroImages(newImages);
-                                                console.log('DEBUG: Removed custom selection, will fall back to firstImage:', session?.firstImage);
                                                 
                                                 setHasUnsavedChanges(true);
                                                 setForceUpdate(prev => prev + 1);
                                                 
                                                 // OPTIMIZATION: Immediate update after reset
-                                                console.log('DEBUG: Triggering immediate preview update after reset...');
                                                 try {
                                                   await updatePreviewWithHeroImages(newImages);
                                                 } finally {
@@ -1535,8 +1493,8 @@ export default function Dashboard({
                             </div>
                           ) : (
                             <div className="text-center py-12">
-                              <div className="p-6 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full mb-6 mx-auto w-fit">
-                                <Image className="h-12 w-12 text-gray-400" />
+                              <div className="p-6 bg-gradient-to-br from-purple-100 to-pink-100 rounded-full mb-6 mx-auto w-fit">
+                                <Image className="h-12 w-12 text-purple-600" />
                               </div>
                               <h3 className="text-lg font-semibold text-gray-700 mb-2">No Images Available</h3>
                               <p className="text-gray-500 max-w-md mx-auto">
