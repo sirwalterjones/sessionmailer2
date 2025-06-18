@@ -139,7 +139,7 @@ export default function SharePage({ data }: SharePageProps) {
                 : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}
           >
-            Email Preview
+            Template
           </button>
           <button
             onClick={() => setActiveTab('html')}
@@ -155,14 +155,7 @@ export default function SharePage({ data }: SharePageProps) {
 
         {/* Content */}
         {activeTab === 'preview' ? (
-          <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-            <div className="p-6 border-b bg-gray-50">
-              <h2 className="text-lg font-semibold text-gray-900">Email Preview</h2>
-              <p className="text-gray-600 mt-1">
-                This is how your email template will appear to recipients
-              </p>
-            </div>
-            
+          <div className="bg-white rounded-xl shadow-lg overflow-hidden">            
             <div className="p-6">
               <div 
                 className="w-full border rounded-lg overflow-hidden"
@@ -172,7 +165,7 @@ export default function SharePage({ data }: SharePageProps) {
                   srcDoc={data.emailHtml}
                   className="w-full h-full"
                   style={{ minHeight: '600px' }}
-                  title="Email Preview"
+                  title="Email Template"
                 />
               </div>
             </div>
