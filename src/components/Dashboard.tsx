@@ -1187,8 +1187,9 @@ export default function Dashboard({
                           disabled={isSharing}
                           className="gap-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 border-0 text-white font-semibold shadow-lg transition-all duration-300"
                         >
-                          <Share2 className={`h-4 w-4 ${isSharing ? 'animate-spin' : ''}`} />
-                          {isSharing ? "Creating..." : "Share Template"}
+                          <Share2 className={`h-3 w-3 sm:h-4 sm:w-4 ${isSharing ? 'animate-spin' : ''}`} />
+                          <span className="hidden sm:inline">{isSharing ? "Creating..." : "Share"}</span>
+                          <span className="sm:hidden">{isSharing ? "..." : "🔗"}</span>
                         </Button>
                       </div>
                     </div>
@@ -1738,7 +1739,6 @@ export default function Dashboard({
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
-                                              <div className="flex items-center gap-3">
                         <Button
                           onClick={handleCopyHtml}
                           className="gap-2 sexy-button border-0 text-white font-semibold px-4 sm:px-6 py-2 sm:py-3 shadow-lg text-sm sm:text-base"
@@ -1747,17 +1747,6 @@ export default function Dashboard({
                           <span className="hidden sm:inline">{htmlCopied ? "✅ Copied!" : "Copy"}</span>
                           <span className="sm:hidden">{htmlCopied ? "✅" : "📋"}</span>
                         </Button>
-                        
-                        <Button
-                          onClick={handleShare}
-                          disabled={isSharing}
-                          className="gap-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 border-0 text-white font-semibold px-4 sm:px-6 py-2 sm:py-3 shadow-lg text-sm sm:text-base transition-all duration-300"
-                        >
-                          <Share2 className={`h-3 w-3 sm:h-4 sm:w-4 ${isSharing ? 'animate-spin' : ''}`} />
-                          <span className="hidden sm:inline">{isSharing ? "Creating..." : "Share"}</span>
-                          <span className="sm:hidden">{isSharing ? "..." : "🔗"}</span>
-                        </Button>
-                      </div>
                         
                         <Button
                           onClick={handleShare}
