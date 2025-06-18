@@ -76,6 +76,7 @@ export default function Dashboard({
   const [isSharing, setIsSharing] = useState(false);
   const [shareUrl, setShareUrl] = useState("");
   const [shareError, setShareError] = useState("");
+  const [shareSuccess, setShareSuccess] = useState(false);
 
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isGeneratorCollapsed, setIsGeneratorCollapsed] = useState(false);
@@ -436,6 +437,7 @@ export default function Dashboard({
           url: projectUrl,
           emailHtml,
           customization,
+          shareUrl: shareUrl || null, // Include share URL if available
         }),
       });
 
@@ -493,6 +495,13 @@ export default function Dashboard({
       // Load the email HTML
       setEmailHtml(project.email_html);
       setCapturedHtml(project.email_html);
+      
+      // Load the share URL if available
+      if (project.share_url) {
+        setShareUrl(project.share_url);
+      } else {
+        setShareUrl("");
+      }
       
       // Mark as generated
       setIsGenerated(true);
@@ -954,6 +963,7 @@ export default function Dashboard({
     try {
       setIsSharing(true);
       setShareError("");
+      setShareSuccess(false);
 
       // Prepare the data to share
       const shareData = {
@@ -995,8 +1005,14 @@ export default function Dashboard({
       await navigator.clipboard.writeText(data.shareUrl);
       setShareUrl(data.shareUrl);
       
-      // Show success message
-      alert(`Share link copied to clipboard!\n\nYour email template is now shareable at:\n${data.shareUrl}\n\nThis link will expire in 30 days.`);
+      // Show success message with better UX
+      setError(""); // Clear any previous errors
+      setShareSuccess(true);
+      
+      // Auto-hide success message after 5 seconds
+      setTimeout(() => {
+        setShareSuccess(false);
+      }, 5000);
 
     } catch (error) {
       console.error('Error creating share link:', error);
@@ -1760,6 +1776,50 @@ export default function Dashboard({
                       </div>
                     </div>
                   </CardHeader>
+                  
+                  {/* Share Success Banner */}
+                  {shareSuccess && (
+                    <div className="mx-6 mb-4 p-4 bg-gradient-to-r from-green-100 to-emerald-100 border-2 border-green-200 rounded-xl">
+                      <div className="flex items-center gap-3">
+                        <div className="flex-shrink-0">
+                          <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
+                            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                          </div>
+                        </div>
+                        <div className="flex-1">
+                          <h4 className="text-green-800 font-semibold">Share Link Created Successfully!</h4>
+                          <p className="text-green-700 text-sm mt-1">
+                            Your email template has been copied to clipboard and is now shareable at:
+                          </p>
+                          <div className="mt-2 p-2 bg-white rounded-lg border border-green-200">
+                            <div className="flex items-center gap-2">
+                              <code className="text-xs text-green-800 font-mono flex-1 truncate">{shareUrl}</code>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => navigator.clipboard.writeText(shareUrl)}
+                                className="h-6 px-2 text-green-600 hover:text-green-800 hover:bg-green-50"
+                              >
+                                <Copy className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </div>
+                          <p className="text-green-600 text-xs mt-1">Link expires in 30 days</p>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setShareSuccess(false)}
+                          className="text-green-600 hover:text-green-800 hover:bg-green-50"
+                        >
+                          ×
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                  
                   <CardContent className="p-0 overflow-hidden">
                     <div className="border-2 border-gray-200 rounded-2xl h-[400px] sm:h-[500px] lg:h-[600px] overflow-auto relative bg-white shadow-inner">
                       

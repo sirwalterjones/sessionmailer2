@@ -45,6 +45,7 @@ export type Database = {
           url: string
           email_html: string
           customization: any | null
+          share_url: string | null
           created_at: string
           updated_at: string
         }
@@ -55,6 +56,7 @@ export type Database = {
           url: string
           email_html: string
           customization?: any | null
+          share_url?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -65,6 +67,7 @@ export type Database = {
           url?: string
           email_html?: string
           customization?: any | null
+          share_url?: string | null
           created_at?: string
           updated_at?: string
         }

@@ -121,10 +121,15 @@ export async function POST(request: NextRequest) {
 
     console.log('Successfully created shared template:', shareId);
 
+    // Determine the base URL for the share link
+    const baseUrl = process.env.NODE_ENV === 'production' 
+      ? 'https://sessionmailer.com'
+      : process.env.NEXTAUTH_URL || 'http://localhost:3000';
+
     return NextResponse.json({
       success: true,
       shareId,
-      shareUrl: `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/share/${shareId}`,
+      shareUrl: `${baseUrl}/share/${shareId}`,
       data
     });
   } catch (error) {

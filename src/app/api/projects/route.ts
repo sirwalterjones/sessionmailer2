@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
   try {
     const supabase = getSupabaseClient();
     const body = await request.json();
-    const { userId, name, url, emailHtml, customization } = body;
+    const { userId, name, url, emailHtml, customization, shareUrl } = body;
 
     if (!userId || !name || !url || !emailHtml) {
       return NextResponse.json({ 
@@ -61,7 +61,8 @@ export async function POST(request: NextRequest) {
       name,
       url,
       email_html: emailHtml,
-      customization: customization || null
+      customization: customization || null,
+      share_url: shareUrl || null
     };
 
     const { data: project, error } = await supabase
@@ -91,7 +92,7 @@ export async function PUT(request: NextRequest) {
   try {
     const supabase = getSupabaseClient();
     const body = await request.json();
-    const { projectId, userId, name, url, emailHtml, customization } = body;
+    const { projectId, userId, name, url, emailHtml, customization, shareUrl } = body;
 
     if (!projectId || !userId) {
       return NextResponse.json({ 
@@ -104,6 +105,7 @@ export async function PUT(request: NextRequest) {
     if (url) updateData.url = url;
     if (emailHtml) updateData.email_html = emailHtml;
     if (customization) updateData.customization = customization;
+    if (shareUrl !== undefined) updateData.share_url = shareUrl; // Allow setting to null
 
     const { data: project, error } = await supabase
       .from('saved_projects')
