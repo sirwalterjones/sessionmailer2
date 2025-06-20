@@ -1,6 +1,6 @@
 'use client';
 
-import { Mail, Camera, User, LogOut } from 'lucide-react';
+import { Mail, Camera, User, LogOut, Shield } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -106,6 +106,13 @@ export default function Navbar() {
                       <Link href="/profile" className="flex items-center px-3 py-2 rounded-md hover:bg-blue-50 transition-colors">
                         <User className="mr-3 h-4 w-4 text-blue-600" />
                         <span className="font-medium">Profile Settings</span>
+                      </Link>
+                    </DropdownMenuItem>
+                    {/* Temporary: Show admin link for all users for testing */}
+                    <DropdownMenuItem asChild>
+                      <Link href="/admin" className="flex items-center px-3 py-2 rounded-md hover:bg-red-50 transition-colors">
+                        <Shield className="mr-3 h-4 w-4 text-red-600" />
+                        <span className="font-medium">Admin Dashboard</span>
                       </Link>
                     </DropdownMenuItem>
                   </div>

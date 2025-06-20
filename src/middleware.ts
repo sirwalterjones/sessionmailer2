@@ -61,9 +61,13 @@ export async function middleware(request: NextRequest) {
 
     // Protected routes that require authentication
     const protectedRoutes = ['/dashboard', '/profile']
+    const adminRoutes = ['/admin']
     const authRoutes = ['/auth/signin', '/auth/signup']
     
     const isProtectedRoute = protectedRoutes.some(route => 
+      request.nextUrl.pathname.startsWith(route)
+    )
+    const isAdminRoute = adminRoutes.some(route => 
       request.nextUrl.pathname.startsWith(route)
     )
     const isAuthRoute = authRoutes.some(route => 
@@ -71,8 +75,26 @@ export async function middleware(request: NextRequest) {
     )
 
     // Redirect unauthenticated users from protected routes to signin
-    if (isProtectedRoute && !user) {
+    if ((isProtectedRoute || isAdminRoute) && !user) {
       return NextResponse.redirect(new URL('/auth/signin', request.url))
+    }
+
+    // Check admin permission for admin routes
+    if (isAdminRoute && user) {
+      try {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('is_admin')
+          .eq('id', user.id)
+          .single()
+        
+        if (!profile?.is_admin) {
+          return NextResponse.redirect(new URL('/dashboard', request.url))
+        }
+      } catch (error) {
+        console.error('Error checking admin status:', error)
+        return NextResponse.redirect(new URL('/dashboard', request.url))
+      }
     }
 
     // Redirect authenticated users from auth routes to dashboard
