@@ -32,12 +32,12 @@ export default function LandingPage() {
           </p>
           
           <div className="flex justify-center">
-            <Link href="/dashboard">
+              <Link href="/dashboard">
               <Button size="lg" className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white px-8 py-3">
                 Get Started Free
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
-            </Link>
+              </Link>
           </div>
         </div>
       </section>
@@ -52,7 +52,7 @@ export default function LandingPage() {
             <p className="text-xl text-gray-600 max-w-2xl mx-auto">
               From URL to stunning email in seconds. Customize colors, fonts, and branding to match your photography business.
             </p>
-          </div>
+                </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             <Card className="border-0 shadow-lg hover:shadow-xl transition-shadow">
@@ -125,7 +125,7 @@ export default function LandingPage() {
         <div className="max-w-4xl mx-auto text-center">
           <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">
             Ready to Transform Your Photo Sessions?
-          </h2>
+        </h2>
           <p className="text-xl text-purple-100 mb-8">
             Join photographers who are already creating stunning email templates with SessionMailer
           </p>
@@ -133,7 +133,7 @@ export default function LandingPage() {
             <Button size="lg" variant="secondary" className="bg-white text-purple-600 hover:bg-gray-100 px-8 py-3">
               Start Creating Now
               <ArrowRight className="ml-2 h-5 w-5" />
-            </Button>
+        </Button>
           </Link>
         </div>
       </section>
@@ -148,7 +148,7 @@ export default function LandingPage() {
               </div>
               <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-gradient-to-br from-pink-500 to-orange-500 rounded-full flex items-center justify-center">
                 <Camera className="h-2 w-2 text-white" />
-              </div>
+            </div>
             </div>
             <span className="text-xl font-bold">SessionMailer</span>
           </div>

@@ -31,7 +31,7 @@ export default function RootLayout({
         <AuthProvider>
           <Navbar />
           <main className="min-h-screen bg-gray-50">
-            {children}
+        {children}
           </main>
         </AuthProvider>
         <TempoInit />

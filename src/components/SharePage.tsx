@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Share2, Copy, Download, ExternalLink } from 'lucide-react';
+import { Share2, ExternalLink } from 'lucide-react';
 
 interface SharePageProps {
   data: {
@@ -25,19 +25,6 @@ interface SharePageProps {
 }
 
 export default function SharePage({ data }: SharePageProps) {
-  const [copied, setCopied] = useState(false);
-  const [activeTab, setActiveTab] = useState<'preview' | 'html'>('preview');
-
-  const handleCopyHtml = async () => {
-    try {
-      await navigator.clipboard.writeText(data.emailHtml);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch (error) {
-      console.error('Failed to copy HTML:', error);
-    }
-  };
-
   const handleShare = async () => {
     if (navigator.share) {
       try {
@@ -58,18 +45,6 @@ export default function SharePage({ data }: SharePageProps) {
         console.error('Failed to copy URL:', error);
       }
     }
-  };
-
-  const downloadHtml = () => {
-    const blob = new Blob([data.emailHtml], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `sessionmailer-template-${data.id}.html`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
   };
 
   return (
@@ -100,22 +75,6 @@ export default function SharePage({ data }: SharePageProps) {
                 Share
               </button>
               
-              <button
-                onClick={handleCopyHtml}
-                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-              >
-                <Copy className="w-4 h-4" />
-                {copied ? 'Copied!' : 'Copy HTML'}
-              </button>
-              
-              <button
-                onClick={downloadHtml}
-                className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-              >
-                <Download className="w-4 h-4" />
-                Download
-              </button>
-              
               <a
                 href="/"
                 className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
@@ -128,72 +87,23 @@ export default function SharePage({ data }: SharePageProps) {
         </div>
       </div>
 
-      {/* Tab Navigation */}
+      {/* Content */}
       <div className="max-w-6xl mx-auto px-4 py-6">
-        <div className="flex border-b border-gray-200 mb-6">
-          <button
-            onClick={() => setActiveTab('preview')}
-            className={`px-6 py-3 font-medium border-b-2 transition-colors ${
-              activeTab === 'preview'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            Template
-          </button>
-          <button
-            onClick={() => setActiveTab('html')}
-            className={`px-6 py-3 font-medium border-b-2 transition-colors ${
-              activeTab === 'html'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            HTML Source
-          </button>
-        </div>
-
-        {/* Content */}
-        {activeTab === 'preview' ? (
-          <div className="bg-white rounded-xl shadow-lg overflow-hidden">            
-            <div className="p-6">
-              <div 
-                className="w-full border rounded-lg overflow-hidden"
+        <div className="bg-white rounded-xl shadow-lg overflow-hidden">            
+          <div className="p-6">
+            <div 
+              className="w-full border rounded-lg overflow-hidden"
+              style={{ minHeight: '600px' }}
+            >
+              <iframe
+                srcDoc={data.emailHtml}
+                className="w-full h-full"
                 style={{ minHeight: '600px' }}
-              >
-                <iframe
-                  srcDoc={data.emailHtml}
-                  className="w-full h-full"
-                  style={{ minHeight: '600px' }}
-                  title="Email Template"
-                />
-              </div>
+                title="Email Template"
+              />
             </div>
           </div>
-        ) : (
-          <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-            <div className="p-6 border-b bg-gray-50">
-              <h2 className="text-lg font-semibold text-gray-900">HTML Source Code</h2>
-              <p className="text-gray-600 mt-1">
-                Copy this HTML to use in your email client or marketing platform
-              </p>
-            </div>
-            
-            <div className="p-6">
-              <div className="relative">
-                <pre className="bg-gray-900 text-green-400 p-6 rounded-lg overflow-x-auto text-sm">
-                  <code>{data.emailHtml}</code>
-                </pre>
-                <button
-                  onClick={handleCopyHtml}
-                  className="absolute top-4 right-4 px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors"
-                >
-                  {copied ? 'Copied!' : 'Copy'}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        </div>
 
         {/* Session Info */}
         {data.sessions.length > 0 && (

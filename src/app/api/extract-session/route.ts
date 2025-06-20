@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { chromium } from "playwright";
 
 function extractFirstImageFromHtml(html: string): string | null {
-  
+
   // Meta tag patterns (highest priority)
   const exactImageMatch = html.match(/<meta\s+name=["']image["']\s+content=["']([^"']+)["']/i);
   if (exactImageMatch && exactImageMatch[1]) {
@@ -41,36 +41,36 @@ function extractFirstImageFromHtml(html: string): string | null {
     return null;
   }
 
-  let bestImage = null;
-  let bestScore = 0;
+    let bestImage = null;
+    let bestScore = 0;
 
   imgMatches.forEach((imgTag) => {
-    const srcMatch = imgTag.match(/src=["']([^"']+)["']/i);
+      const srcMatch = imgTag.match(/src=["']([^"']+)["']/i);
     if (!srcMatch) return;
 
-    const src = srcMatch[1];
+        const src = srcMatch[1];
     const alt = imgTag.match(/alt=["']([^"']*)["']/i)?.[1] || '';
     const classes = imgTag.match(/class=["']([^"']*)["']/i)?.[1] || '';
 
-    // Skip obvious non-hero images
+        // Skip obvious non-hero images
     if (src.includes('logo') || src.includes('icon') || src.includes('avatar') || 
         src.includes('thumb') || src.includes('small') || alt.toLowerCase().includes('logo')) {
       return;
-    }
+        }
 
     let score = 0;
 
     // Hero image indicators (high score)
     if (classes.includes('hero') || classes.includes('main') || classes.includes('featured') ||
         classes.includes('banner') || classes.includes('cover') || alt.toLowerCase().includes('hero')) {
-      score += 100;
-    }
+          score += 100;
+        }
 
     // CDN or high-quality image indicators
     if (src.includes('unsplash') || src.includes('pexels') || src.includes('shutterstock') ||
         src.includes('cdn') || src.includes('cloudinary')) {
-      score += 50;
-    }
+          score += 50;
+        }
 
     // Size hints in URL
     if (src.includes('1200') || src.includes('1920') || src.includes('large') || 
@@ -86,13 +86,13 @@ function extractFirstImageFromHtml(html: string): string | null {
       score += 20;
     }
 
-    if (score > bestScore) {
-      bestScore = score;
-      bestImage = src;
-    }
+        if (score > bestScore) {
+          bestScore = score;
+          bestImage = src;
+        }
   });
 
-  return bestImage;
+      return bestImage;
 }
 
 function extractTextContent(html: string): {
@@ -334,7 +334,7 @@ function cleanHtmlForEmail(html: string, baseUrl: string): string {
 <body>
     <div class="email-container">
         ${cleanedHtml.replace(/<\/body>/i, '')}
-        <div style="text-align: center; margin: 30px 0; padding: 20px;">
+    <div style="text-align: center; margin: 30px 0; padding: 20px;">
             <a href="${baseUrl}" class="book-now-btn">Book This Session</a>
         </div>
     </div>
@@ -591,7 +591,7 @@ export async function POST(request: NextRequest) {
     );
   } finally {
     if (browser) {
-      await browser.close();
+        await browser.close();
     }
   }
 }
