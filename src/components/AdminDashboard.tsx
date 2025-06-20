@@ -208,14 +208,10 @@ export default function AdminDashboard() {
   };
 
   useEffect(() => {
-    // Simulate API loading
-    const timer = setTimeout(() => {
-      setUsers(mockUsers);
-      setAnalytics(mockAnalytics);
-      setLoading(false);
-    }, 1000);
-
-    return () => clearTimeout(timer);
+    // Load mock data immediately
+    setUsers(mockUsers);
+    setAnalytics(mockAnalytics);
+    setLoading(false);
   }, []);
 
   const handleUserAction = async (userId: string, action: string, additionalData: any = {}) => {
@@ -223,8 +219,8 @@ export default function AdminDashboard() {
     setError("");
     setSuccess("");
 
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    // Remove artificial delay for instant actions
+    // await new Promise(resolve => setTimeout(resolve, 1000));
 
     try {
       // Mock actions
