@@ -300,6 +300,9 @@ export default function AdminDashboard() {
       <div className="mb-8">
         <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
           Admin Dashboard
+          <span className="ml-2 text-sm bg-green-100 text-green-800 px-2 py-1 rounded-full font-normal">
+            v2.0 - Latest
+          </span>
         </h1>
         <p className="text-muted-foreground mt-2">
           Manage users, view analytics, and oversee SessionMailer operations
