@@ -35,14 +35,15 @@ export default function SignUpPage() {
     }
 
     try {
-      const { data, error } = await signUp(email, password, fullName)
+      const { error } = await signUp(email, password, fullName)
 
       if (error) {
         setError(error.message)
         setLoading(false)
-      } else if (data.user) {
+      } else {
         // Account created successfully, move to subscription step
-        setUserId(data.user.id)
+        // Since we don't have the user ID from signUp, we'll use the email as an identifier
+        setUserId(email)
         setStep('subscription')
         setLoading(false)
       }
