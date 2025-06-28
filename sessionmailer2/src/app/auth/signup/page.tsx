@@ -238,7 +238,7 @@ export default function SignUpPage() {
                 ) : (
                   <ArrowRight className="h-4 w-4 mr-2" />
                 )}
-{loading ? 'Creating account...' : 'Continue to Subscription'}
+                {loading ? 'Creating account...' : 'Continue to Subscription'}
               </Button>
               
               <div className="text-center text-sm text-muted-foreground">
@@ -253,8 +253,6 @@ export default function SignUpPage() {
             </CardFooter>
           </form>
         </Card>
-
-
       </div>
     </div>
   )

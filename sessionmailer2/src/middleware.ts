@@ -108,7 +108,7 @@ export async function middleware(request: NextRequest) {
       try {
         const { data: profile } = await supabase
           .from('profiles')
-          .select('is_admin, subscription_status, subscription_expires_at')
+          .select('is_admin')
           .eq('id', user.id)
           .single()
         

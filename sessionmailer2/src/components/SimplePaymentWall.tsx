@@ -21,7 +21,7 @@ import {
 interface SimplePaymentWallProps {
   userEmail: string;
   userId: string;
-  onAccessRequested?: () => void;
+  onAccessRequested?: (subscriptionId: string) => void;
 }
 
 export default function SimplePaymentWall({ userEmail, userId, onAccessRequested }: SimplePaymentWallProps) {
@@ -72,7 +72,8 @@ export default function SimplePaymentWall({ userEmail, userId, onAccessRequested
 
       if (response.ok) {
         setAccessRequested(true);
-        onAccessRequested?.();
+        // Pass the payment confirmation as the subscription ID
+        onAccessRequested?.(paymentConfirmation);
       } else {
         alert('Failed to submit access request. Please try again.');
       }
