@@ -116,102 +116,39 @@ export default function AdminDashboard() {
     user: null,
   });
 
-  // Mock data for demonstration - replace with real API calls
-  const mockUsers: User[] = [
-    {
-      id: "1",
-      email: "walterjonesjr@gmail.com",
-      created_at: "2024-01-15T10:30:00Z",
-      last_sign_in_at: "2024-01-20T14:22:00Z",
-      email_confirmed_at: "2024-01-15T10:35:00Z",
-      profile: { full_name: "Walter Jones Jr" },
-      project_count: 12,
-      is_premium: true,
-      is_admin: true,
-    },
-    {
-      id: "2",
-      email: "user@example.com",
-      created_at: "2024-01-18T09:15:00Z",
-      last_sign_in_at: "2024-01-19T16:45:00Z",
-      email_confirmed_at: "2024-01-18T09:20:00Z",
-      profile: { full_name: "John Doe" },
-      project_count: 3,
-      is_premium: false,
-      is_admin: false,
-    },
-    {
-      id: "3",
-      email: "premium.user@example.com",
-      created_at: "2024-01-10T11:00:00Z",
-      last_sign_in_at: "2024-01-20T08:30:00Z",
-      email_confirmed_at: "2024-01-10T11:05:00Z",
-      profile: { full_name: "Jane Smith" },
-      project_count: 8,
-      is_premium: true,
-      is_admin: false,
-    },
-  ];
-
-  const mockAnalytics: Analytics = {
-    overview: {
-      totalUsers: 156,
-      premiumUsers: 23,
-      adminUsers: 2,
-      activeUsers: 89,
-      totalProjects: 342,
-      totalShares: 45,
-      totalViews: 1247,
-      newUsers30Days: 34,
-      newUsers7Days: 8,
-      newProjects30Days: 67,
-      newProjects7Days: 15,
-    },
-    trends: {
-      userRegistrationTrend: [
-        { date: "2024-01-14", count: 2 },
-        { date: "2024-01-15", count: 5 },
-        { date: "2024-01-16", count: 3 },
-        { date: "2024-01-17", count: 7 },
-        { date: "2024-01-18", count: 4 },
-        { date: "2024-01-19", count: 6 },
-        { date: "2024-01-20", count: 8 },
-      ],
-      projectCreationTrend: [
-        { date: "2024-01-14", count: 8 },
-        { date: "2024-01-15", count: 12 },
-        { date: "2024-01-16", count: 6 },
-        { date: "2024-01-17", count: 15 },
-        { date: "2024-01-18", count: 9 },
-        { date: "2024-01-19", count: 11 },
-        { date: "2024-01-20", count: 18 },
-      ],
-    },
-    insights: {
-      topDomains: [
-        { domain: "book.usesession.com", count: 45 },
-        { domain: "example.com", count: 32 },
-        { domain: "github.com", count: 28 },
-        { domain: "docs.google.com", count: 23 },
-        { domain: "notion.so", count: 19 },
-      ],
-      activityDistribution: {
-        no_projects: 67,
-        one_project: 34,
-        two_to_five: 28,
-        six_to_ten: 18,
-        more_than_ten: 9,
-      },
-      premiumConversionRate: "14.7",
-      averageProjectsPerUser: "3.8",
-    },
-  };
-
   useEffect(() => {
-    // Load mock data immediately
-    setUsers(mockUsers);
-    setAnalytics(mockAnalytics);
-    setLoading(false);
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        
+        // Fetch users
+        const usersResponse = await fetch('/api/admin/users');
+        if (usersResponse.ok) {
+          const usersData = await usersResponse.json();
+          setUsers(usersData.users || []);
+        } else {
+          console.error('Failed to fetch users:', usersResponse.statusText);
+          setError('Failed to load users');
+        }
+        
+        // Fetch analytics
+        const analyticsResponse = await fetch('/api/admin/analytics');
+        if (analyticsResponse.ok) {
+          const analyticsData = await analyticsResponse.json();
+          setAnalytics(analyticsData);
+        } else {
+          console.error('Failed to fetch analytics:', analyticsResponse.statusText);
+          setError('Failed to load analytics');
+        }
+      } catch (error) {
+        console.error('Error fetching admin data:', error);
+        setError('Failed to load admin data');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
   }, []);
 
   const handleUserAction = async (userId: string, action: string, additionalData: any = {}) => {
@@ -219,36 +156,36 @@ export default function AdminDashboard() {
     setError("");
     setSuccess("");
 
-    // Remove artificial delay for instant actions
-    // await new Promise(resolve => setTimeout(resolve, 1000));
-
     try {
-      // Mock actions
-      switch (action) {
-        case 'reset_password':
-          setSuccess('Password reset link sent to user');
-          break;
-        case 'toggle_premium':
-          setUsers(prev => prev.map(u => 
-            u.id === userId ? { ...u, is_premium: !u.is_premium } : u
-          ));
-          setSuccess(`Premium status ${additionalData.is_premium ? 'enabled' : 'disabled'}`);
-          break;
-        case 'toggle_admin':
-          setUsers(prev => prev.map(u => 
-            u.id === userId ? { ...u, is_admin: !u.is_admin } : u
-          ));
-          setSuccess(`Admin status ${additionalData.is_admin ? 'enabled' : 'disabled'}`);
-          break;
-        case 'delete_user':
-          setUsers(prev => prev.filter(u => u.id !== userId));
-          setSuccess('User deleted successfully');
-          break;
-        default:
-          throw new Error('Invalid action');
+      const response = await fetch('/api/admin/users', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId,
+          action,
+          ...additionalData,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setSuccess(data.message || 'Action completed successfully');
+        
+        // Refresh the users list to get updated data
+        const usersResponse = await fetch('/api/admin/users');
+        if (usersResponse.ok) {
+          const usersData = await usersResponse.json();
+          setUsers(usersData.users || []);
+        }
+      } else {
+        setError(data.error || 'Action failed');
       }
-    } catch (err: any) {
-      setError(err.message);
+    } catch (error) {
+      console.error('Error performing user action:', error);
+      setError('Failed to perform action');
     } finally {
       setActionLoading(null);
     }
