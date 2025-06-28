@@ -63,6 +63,7 @@ export async function middleware(request: NextRequest) {
     const protectedRoutes = ['/dashboard', '/profile']
     const adminRoutes = ['/admin']
     const authRoutes = ['/auth/signin', '/auth/signup']
+    const paymentRoutes = ['/auth/subscription', '/auth/payment']
     
     const isProtectedRoute = protectedRoutes.some(route => 
       request.nextUrl.pathname.startsWith(route)
@@ -73,14 +74,17 @@ export async function middleware(request: NextRequest) {
     const isAuthRoute = authRoutes.some(route => 
       request.nextUrl.pathname.startsWith(route)
     )
+    const isPaymentRoute = paymentRoutes.some(route => 
+      request.nextUrl.pathname.startsWith(route)
+    )
 
     // Redirect unauthenticated users from protected routes to signin
     if ((isProtectedRoute || isAdminRoute) && !user) {
       return NextResponse.redirect(new URL('/auth/signin', request.url))
     }
 
-    // Check payment status for protected routes (except admin routes)
-    if (isProtectedRoute && user && !isAdminRoute) {
+    // Check payment status for protected routes (except admin routes and payment routes)
+    if (isProtectedRoute && user && !isAdminRoute && !isPaymentRoute) {
       try {
         const { data: profile } = await supabase
           .from('profiles')
@@ -95,11 +99,13 @@ export async function middleware(request: NextRequest) {
         )
         
         if (!hasAccess) {
-          return NextResponse.redirect(new URL('/auth/signup', request.url))
+          // Redirect to payment page instead of signup to avoid redirect loop
+          return NextResponse.redirect(new URL('/auth/subscription', request.url))
         }
       } catch (error) {
         console.error('Error checking payment status:', error)
-        return NextResponse.redirect(new URL('/auth/signup', request.url))
+        // On error, allow access to prevent breaking the app
+        return response
       }
     }
 
@@ -123,8 +129,8 @@ export async function middleware(request: NextRequest) {
       }
     }
 
-    // Redirect authenticated users from auth routes to dashboard
-    if (isAuthRoute && user) {
+    // Redirect authenticated users from auth routes to dashboard (but not payment routes)
+    if (isAuthRoute && user && !isPaymentRoute) {
       return NextResponse.redirect(new URL('/dashboard', request.url))
     }
 
