@@ -1,0 +1,25 @@
+app = "sessionmailer2"
+primary_region = "atl"
+
+[build]
+  [build.args]
+    NEXT_PUBLIC_SUPABASE_URL = "https://hfkxrxoomyltizaxyqtk.supabase.co"
+    NEXT_PUBLIC_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhma3hyeG9vbXlsdGl6YXh5cXRrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk5NjA1NTMsImV4cCI6MjA2NTUzNjU1M30.1btuonZN9siE8PuatEjm30giOnOnG8LE6AFiZWnQtz8"
+    NEXT_PUBLIC_PAYPAL_CLIENT_ID = "ARdnZ_tYRXRuyuO5f7NoXG29ojKKPeZlzHu_5i29m0DRz96DLQP0dHW1BgpTth8BB2rKkthimbpPu9jH"
+
+[env]
+  NODE_ENV = "production"
+  PORT = "3000"
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = true
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ["app"]
+
+[[vm]]
+  memory = "2gb"
+  cpu_kind = "shared"
+  cpus = 1 

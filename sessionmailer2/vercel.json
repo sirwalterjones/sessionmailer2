@@ -1,0 +1,11 @@
+{
+  "functions": {
+    "src/app/api/enhanced-extract/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/extract-session/route.ts": {
+      "maxDuration": 60
+    }
+  },
+  "regions": ["iad1"]
+} 
