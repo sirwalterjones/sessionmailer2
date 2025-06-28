@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -12,16 +12,25 @@ import SimplePaymentWall from '@/components/SimplePaymentWall'
 export default function SubscriptionPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [paymentSuccess, setPaymentSuccess] = useState(false)
   const { user } = useAuth()
   const router = useRouter()
+  const searchParams = useSearchParams()
 
   useEffect(() => {
     if (!user) {
       router.push('/auth/signin')
       return
     }
+    
+    // Check if user returned from PayPal payment
+    const paymentStatus = searchParams.get('payment')
+    if (paymentStatus === 'success') {
+      setPaymentSuccess(true)
+    }
+    
     setLoading(false)
-  }, [user, router])
+  }, [user, router, searchParams])
 
   const handleSubscriptionSuccess = (subscriptionId: string) => {
     // Redirect to dashboard after successful subscription
@@ -67,6 +76,16 @@ export default function SubscriptionPage() {
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
+        {paymentSuccess && (
+          <Alert className="border-green-200 bg-green-50 text-green-800">
+            <CheckCircle className="h-4 w-4" />
+            <AlertDescription>
+              <strong>Payment Successful!</strong> Your account will be activated within 24 hours. 
+              Walt will review your payment and grant you access to SessionMailer.
+            </AlertDescription>
           </Alert>
         )}
 

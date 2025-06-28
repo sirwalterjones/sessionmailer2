@@ -40,15 +40,10 @@ export default function SimplePaymentWall({ userEmail, userId, onAccessRequested
   };
 
   const handlePayPalRedirect = () => {
-    // Direct PayPal payment link (no hosted button)
-    const paypalUrl = `https://www.paypal.com/paypalme/walterjonesjr@gmail.com?amount=10&note=SessionMailer Monthly Subscription - ${userEmail}`;
+    // Direct PayPal payment link with return URL
+    const returnUrl = encodeURIComponent(`${window.location.origin}/auth/subscription?payment=success`);
+    const paypalUrl = `https://www.paypal.com/paypalme/walterjonesjr@gmail.com?amount=10&note=SessionMailer Monthly Subscription - ${userEmail}&return=${returnUrl}`;
     window.open(paypalUrl, '_blank');
-  };
-
-  const handleVenmoRedirect = () => {
-    // Venmo payment link
-    const venmoUrl = `https://venmo.com/u/walterjonesjr?txn=pay&note=SessionMailer Monthly Subscription - ${userEmail}&amount=10`;
-    window.open(venmoUrl, '_blank');
   };
 
   const requestAccess = async () => {
@@ -127,7 +122,7 @@ export default function SimplePaymentWall({ userEmail, userId, onAccessRequested
 
         {/* Payment Options */}
         <div className="space-y-4">
-          <h3 className="font-semibold text-center">Choose Your Payment Method:</h3>
+          <h3 className="font-semibold text-center">Complete Your Payment:</h3>
           
           {/* PayPal Option */}
           <div className="space-y-2">
@@ -141,24 +136,6 @@ export default function SimplePaymentWall({ userEmail, userId, onAccessRequested
             </Button>
             <p className="text-xs text-center text-muted-foreground">
               Secure automatic monthly billing
-            </p>
-          </div>
-
-          <div className="text-center text-sm text-muted-foreground">or</div>
-
-          {/* Venmo Option */}
-          <div className="space-y-2">
-            <Button
-              onClick={handleVenmoRedirect}
-              variant="outline"
-              className="w-full border-green-200 text-green-700 hover:bg-green-50"
-            >
-              <span className="font-bold mr-2">V</span>
-              Pay with Venmo ($10)
-              <ExternalLink className="h-4 w-4 ml-2" />
-            </Button>
-            <p className="text-xs text-center text-muted-foreground">
-              One-time payment (you'll need to pay monthly)
             </p>
           </div>
         </div>
