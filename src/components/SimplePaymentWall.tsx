@@ -40,8 +40,8 @@ export default function SimplePaymentWall({ userEmail, userId, onAccessRequested
   };
 
   const handlePayPalRedirect = () => {
-    // PayPal subscription link (you'll replace this with your actual PayPal subscription button link)
-    const paypalUrl = `https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=YOUR_BUTTON_ID&custom=${userId}`;
+    // Direct PayPal payment link (no hosted button)
+    const paypalUrl = `https://www.paypal.com/paypalme/walterjonesjr?amount=10&note=SessionMailer Monthly Subscription - ${userEmail}`;
     window.open(paypalUrl, '_blank');
   };
 
@@ -52,11 +52,6 @@ export default function SimplePaymentWall({ userEmail, userId, onAccessRequested
   };
 
   const requestAccess = async () => {
-    if (!paymentConfirmation.trim()) {
-      alert('Please enter your payment confirmation details');
-      return;
-    }
-
     // Simple API call to request access
     try {
       const response = await fetch('/api/request-access', {
@@ -65,7 +60,7 @@ export default function SimplePaymentWall({ userEmail, userId, onAccessRequested
         body: JSON.stringify({
           userId,
           userEmail,
-          paymentConfirmation: paymentConfirmation.trim(),
+          paymentConfirmation: paymentConfirmation.trim() || 'No payment details provided',
           requestedAt: new Date().toISOString()
         })
       });
@@ -73,7 +68,7 @@ export default function SimplePaymentWall({ userEmail, userId, onAccessRequested
       if (response.ok) {
         setAccessRequested(true);
         // Pass the payment confirmation as the subscription ID
-        onAccessRequested?.(paymentConfirmation);
+        onAccessRequested?.(paymentConfirmation || 'pending');
       } else {
         alert('Failed to submit access request. Please try again.');
       }
@@ -197,13 +192,12 @@ export default function SimplePaymentWall({ userEmail, userId, onAccessRequested
           <h4 className="font-semibold">After Payment:</h4>
           <div className="space-y-2">
             <Input
-              placeholder="Enter PayPal transaction ID or confirmation details"
+              placeholder="Optional: Enter payment details or transaction ID"
               value={paymentConfirmation}
               onChange={(e) => setPaymentConfirmation(e.target.value)}
             />
             <Button
               onClick={requestAccess}
-              disabled={!paymentConfirmation.trim()}
               className="w-full"
             >
               Request Access

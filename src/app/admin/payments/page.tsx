@@ -193,10 +193,12 @@ export default function PaymentApprovalsPage() {
                               <AlertDialogTitle>Approve Payment</AlertDialogTitle>
                               <AlertDialogDescription>
                                 This will grant premium access to {request.user_email}. 
-                                Make sure you've verified their payment of $10.
+                                Make sure you've verified their payment of $10 in your PayPal/Venmo account.
                                 <br /><br />
-                                <strong>Payment Details:</strong><br />
-                                {request.payment_confirmation}
+                                <strong>User Details:</strong><br />
+                                Email: {request.user_email}<br />
+                                Payment Info: {request.payment_confirmation}<br />
+                                Requested: {new Date(request.requested_at).toLocaleDateString()}
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
@@ -254,11 +256,12 @@ export default function PaymentApprovalsPage() {
       <Alert>
         <Eye className="h-4 w-4" />
         <AlertDescription>
-          <strong>How to verify payments:</strong>
-          <br />• Check your PayPal account at paypal.com for recent $10 payments
-          <br />• Check your Venmo account for payments with "SessionMailer" in the note
-          <br />• Match the transaction ID or email with the user's confirmation details
-          <br />• Once verified, click "Approve" to grant them access
+          <strong>Simple Approval Process:</strong>
+          <br />• Users register and submit payment requests
+          <br />• Check your PayPal/Venmo for $10 payments from their email
+          <br />• If payment is found, click "Approve" to grant access
+          <br />• If no payment, click "Reject" to deny access
+          <br />• <strong>walterjonesjr@gmail.com</strong> is automatically exempt from payment
         </AlertDescription>
       </Alert>
     </div>

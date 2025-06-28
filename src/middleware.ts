@@ -88,14 +88,15 @@ export async function middleware(request: NextRequest) {
       try {
         const { data: profile } = await supabase
           .from('profiles')
-          .select('is_premium, payment_status')
+          .select('is_premium, payment_status, email')
           .eq('id', user.id)
           .single()
         
-        // Allow access if user is premium or has paid
+        // Allow access if user is premium, has paid, or is the exempt user
         const hasAccess = profile && (
           profile.is_premium === true || 
-          profile.payment_status === 'paid'
+          profile.payment_status === 'paid' ||
+          profile.email === 'walterjonesjr@gmail.com' // Exempt user
         )
         
         if (!hasAccess) {
