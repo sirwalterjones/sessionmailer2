@@ -86,6 +86,12 @@ export async function middleware(request: NextRequest) {
     // Check payment status for protected routes (except admin routes and payment routes)
     if (isProtectedRoute && user && !isAdminRoute && !isPaymentRoute) {
       try {
+        // First check if user is the exempt user
+        if (user.email === 'walterjonesjr@gmail.com') {
+          // Always grant access to exempt user
+          return response;
+        }
+
         const { data: profile } = await supabase
           .from('profiles')
           .select('is_premium, payment_status, email')

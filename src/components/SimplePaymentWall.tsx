@@ -161,51 +161,23 @@ export default function SimplePaymentWall({ userEmail, userId, onAccessRequested
               One-time payment (you'll need to pay monthly)
             </p>
           </div>
-
-          <div className="text-center text-sm text-muted-foreground">or</div>
-
-          {/* Direct PayPal Email */}
-          <div className="p-4 bg-gray-50 rounded-lg space-y-2">
-            <p className="text-sm font-medium">Send payment directly to:</p>
-            <div className="flex items-center gap-2">
-              <Mail className="h-4 w-4 text-muted-foreground" />
-              <span className="font-mono text-sm">walterjonesjr@gmail.com</span>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={copyEmail}
-                className="h-6 w-6 p-0"
-              >
-                {copied ? <CheckCircle className="h-3 w-3 text-green-600" /> : <Copy className="h-3 w-3" />}
-              </Button>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Include "SessionMailer - {userEmail}" in the payment note
-            </p>
-          </div>
         </div>
 
         <Separator />
 
         {/* Confirmation Section */}
         <div className="space-y-3">
-          <h4 className="font-semibold">After Payment:</h4>
-          <div className="space-y-2">
-            <Input
-              placeholder="Optional: Enter payment details or transaction ID"
-              value={paymentConfirmation}
-              onChange={(e) => setPaymentConfirmation(e.target.value)}
-            />
-            <Button
-              onClick={requestAccess}
-              className="w-full"
-            >
-              Request Access
-            </Button>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Walt will verify your payment and activate your account within 24 hours
-          </p>
+          <Input
+            placeholder="Optional: Enter payment details or transaction ID"
+            value={paymentConfirmation}
+            onChange={(e) => setPaymentConfirmation(e.target.value)}
+          />
+          <Button
+            onClick={requestAccess}
+            className="w-full"
+          >
+            Request Access
+          </Button>
         </div>
 
         {/* Features */}
