@@ -1,4 +1,5 @@
 // Updated: Fixed redirect loop and added subscription page - 2025-06-28
+// Updated: Fixed admin dashboard authentication - 2025-06-28
 import React from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
