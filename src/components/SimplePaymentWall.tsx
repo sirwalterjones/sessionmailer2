@@ -41,7 +41,7 @@ export default function SimplePaymentWall({ userEmail, userId, onAccessRequested
 
   const handlePayPalRedirect = () => {
     // Direct PayPal payment link (no hosted button)
-    const paypalUrl = `https://www.paypal.com/paypalme/walterjonesjr?amount=10&note=SessionMailer Monthly Subscription - ${userEmail}`;
+    const paypalUrl = `https://www.paypal.com/paypalme/walterjonesjr@gmail.com?amount=10&note=SessionMailer Monthly Subscription - ${userEmail}`;
     window.open(paypalUrl, '_blank');
   };
 
