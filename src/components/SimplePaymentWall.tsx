@@ -212,10 +212,6 @@ export default function SimplePaymentWall({ userEmail, userId, onAccessRequested
               <CheckCircle className="h-3 w-3 text-green-500" />
               Save and manage projects
             </li>
-            <li className="flex items-center gap-2">
-              <CheckCircle className="h-3 w-3 text-green-500" />
-              Direct support from Walt
-            </li>
           </ul>
         </div>
       </CardContent>

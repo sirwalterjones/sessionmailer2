@@ -207,12 +207,6 @@ export default function LandingPage() {
                     </div>
                     <span className="text-gray-700">Email-ready HTML export</span>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center">
-                      <Check className="h-4 w-4 text-green-600" />
-                    </div>
-                    <span className="text-gray-700">Direct support from Walt</span>
-                  </div>
                 </div>
                 
                 <Link href="/auth/signup">
