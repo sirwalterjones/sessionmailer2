@@ -27,14 +27,40 @@ export default function LandingPage() {
             Into Beautiful Emails
           </h1>
           
-          <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
+          <p className="text-xl text-gray-600 mb-6 max-w-3xl mx-auto">
             SessionMailer automatically converts your usesession.com photo sessions into 
             professional, customizable email templates. Perfect for photographers who want 
             to impress their clients with stunning email presentations.
           </p>
           
+          <div className="flex items-center justify-center mb-8">
+            <div className="bg-white rounded-2xl shadow-lg border border-purple-100 px-6 py-4">
+              <div className="flex items-center gap-3">
+                <Badge className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-3 py-1">
+                  💰 Simple Pricing
+                </Badge>
+                <div className="text-center">
+                  <span className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
+                    $10
+                  </span>
+                  <span className="text-gray-600 ml-1">/month</span>
+                </div>
+                <div className="text-sm text-gray-500">
+                  <div className="flex items-center gap-1">
+                    <Check className="h-4 w-4 text-green-500" />
+                    Unlimited templates
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Check className="h-4 w-4 text-green-500" />
+                    Full customization
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
           <div className="flex justify-center">
-              <Link href="/dashboard">
+              <Link href="/auth/signup">
               <Button size="lg" className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white px-8 py-3">
                 Get Started Free
                 <ArrowRight className="ml-2 h-5 w-5" />
@@ -122,6 +148,89 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Pricing Section */}
+      <section className="py-20 px-4 bg-gradient-to-br from-gray-50 to-blue-50">
+        <div className="max-w-4xl mx-auto text-center">
+          <Badge variant="secondary" className="mb-6 bg-green-100 text-green-700 hover:bg-green-200">
+            <Star className="h-3 w-3 mr-1" />
+            Simple & Affordable
+          </Badge>
+          
+          <h2 className="text-3xl md:text-4xl font-bold mb-4">
+            One Simple Price for Everything
+          </h2>
+          <p className="text-xl text-gray-600 mb-12 max-w-2xl mx-auto">
+            No hidden fees, no complicated tiers. Get access to all features for one low monthly price.
+          </p>
+          
+          <div className="max-w-md mx-auto">
+            <Card className="border-2 border-purple-200 shadow-2xl relative overflow-hidden">
+              <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-purple-600 to-blue-600"></div>
+              <CardHeader className="text-center py-8">
+                <div className="text-5xl font-bold mb-2">
+                  <span className="bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">$10</span>
+                  <span className="text-2xl text-gray-500 font-normal">/month</span>
+                </div>
+                <CardTitle className="text-2xl">Professional Plan</CardTitle>
+                <CardDescription className="text-lg">Everything you need to create stunning email templates</CardDescription>
+              </CardHeader>
+              
+              <CardContent className="px-8 pb-8">
+                <div className="space-y-4 mb-8">
+                  <div className="flex items-center gap-3">
+                    <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center">
+                      <Check className="h-4 w-4 text-green-600" />
+                    </div>
+                    <span className="text-gray-700">Unlimited email templates</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center">
+                      <Check className="h-4 w-4 text-green-600" />
+                    </div>
+                    <span className="text-gray-700">Full color & font customization</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center">
+                      <Check className="h-4 w-4 text-green-600" />
+                    </div>
+                    <span className="text-gray-700">Multiple sessions per email</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center">
+                      <Check className="h-4 w-4 text-green-600" />
+                    </div>
+                    <span className="text-gray-700">Save & manage projects</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center">
+                      <Check className="h-4 w-4 text-green-600" />
+                    </div>
+                    <span className="text-gray-700">Email-ready HTML export</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center">
+                      <Check className="h-4 w-4 text-green-600" />
+                    </div>
+                    <span className="text-gray-700">Direct support from Walt</span>
+                  </div>
+                </div>
+                
+                <Link href="/auth/signup">
+                  <Button className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white py-3 text-lg">
+                    Start Your $10/Month Plan
+                    <ArrowRight className="ml-2 h-5 w-5" />
+                  </Button>
+                </Link>
+                
+                <p className="text-sm text-gray-500 mt-4">
+                  🔒 Secure PayPal billing • Cancel anytime • No contracts
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </section>
+
       {/* CTA Section */}
       <section className="bg-gradient-to-r from-purple-600 to-blue-600 py-20 px-4">
         <div className="max-w-4xl mx-auto text-center">
@@ -131,7 +240,7 @@ export default function LandingPage() {
           <p className="text-xl text-purple-100 mb-8">
             Join photographers who are already creating stunning email templates with SessionMailer
           </p>
-          <Link href="/dashboard">
+          <Link href="/auth/signup">
             <Button size="lg" variant="secondary" className="bg-white text-purple-600 hover:bg-gray-100 px-8 py-3">
               Start Creating Now
               <ArrowRight className="ml-2 h-5 w-5" />
