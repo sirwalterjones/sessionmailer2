@@ -52,7 +52,31 @@ export default function SimplePaymentWall({ userEmail, userId, onAccessRequested
       window.paypal.HostedButtons({
         hostedButtonId: "4NN6A85J736E2"
       }).render("#paypal-button-container");
+      
+      // Listen for PayPal payment completion (if supported)
+      // When payment completes, automatically request access
+      setTimeout(() => {
+        handlePaymentSuccess();
+      }, 1000); // Small delay to ensure button is rendered
     }
+  };
+
+  const handlePaymentSuccess = () => {
+    // Add a click listener to detect when user returns from PayPal
+    const checkForReturn = () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('payment') === 'success') {
+        // Automatically submit access request
+        requestAccess('PayPal payment completed');
+      }
+    };
+    
+    // Check immediately and then periodically
+    checkForReturn();
+    const interval = setInterval(checkForReturn, 2000);
+    
+    // Clear interval after 30 seconds
+    setTimeout(() => clearInterval(interval), 30000);
   };
 
   const copyEmail = async () => {
@@ -65,7 +89,7 @@ export default function SimplePaymentWall({ userEmail, userId, onAccessRequested
     }
   };
 
-  const requestAccess = async () => {
+  const requestAccess = async (paymentInfo = 'PayPal payment completed') => {
     // Simple API call to request access
     try {
       const response = await fetch('/api/request-access', {
@@ -74,7 +98,7 @@ export default function SimplePaymentWall({ userEmail, userId, onAccessRequested
         body: JSON.stringify({
           userId,
           userEmail,
-          paymentConfirmation: paymentConfirmation.trim() || 'No payment details provided',
+          paymentConfirmation: paymentInfo,
           requestedAt: new Date().toISOString()
         })
       });
@@ -82,12 +106,12 @@ export default function SimplePaymentWall({ userEmail, userId, onAccessRequested
       if (response.ok) {
         setAccessRequested(true);
         // Pass the payment confirmation as the subscription ID
-        onAccessRequested?.(paymentConfirmation || 'pending');
+        onAccessRequested?.(paymentInfo);
       } else {
-        alert('Failed to submit access request. Please try again.');
+        console.error('Failed to submit access request');
       }
     } catch (error) {
-      alert('Failed to submit access request. Please try again.');
+      console.error('Failed to submit access request:', error);
     }
   };
 
@@ -160,40 +184,6 @@ export default function SimplePaymentWall({ userEmail, userId, onAccessRequested
               Secure $10 payment via PayPal
             </p>
           </div>
-          
-          {/* Manual Payment Option */}
-          <div className="text-center">
-            <p className="text-sm text-muted-foreground mb-2">Or send manually:</p>
-            <div className="flex items-center justify-center gap-2 mb-2">
-              <code className="bg-gray-100 px-2 py-1 rounded text-sm">walterjonesjr@gmail.com</code>
-              <Button
-                onClick={copyEmail}
-                variant="outline"
-                size="sm"
-              >
-                <Copy className="h-3 w-3" />
-                {copied ? 'Copied!' : 'Copy'}
-              </Button>
-            </div>
-            <p className="text-xs text-muted-foreground">Send $10 with note: "SessionMailer - {userEmail}"</p>
-          </div>
-        </div>
-
-        <Separator />
-
-        {/* Confirmation Section */}
-        <div className="space-y-3">
-          <Input
-            placeholder="Optional: Enter payment details or transaction ID"
-            value={paymentConfirmation}
-            onChange={(e) => setPaymentConfirmation(e.target.value)}
-          />
-          <Button
-            onClick={requestAccess}
-            className="w-full"
-          >
-            Request Access
-          </Button>
         </div>
 
         {/* Features */}
