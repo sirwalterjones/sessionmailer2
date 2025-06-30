@@ -37,20 +37,15 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = getSupabaseClient();
     
-    // Get the requesting user ID from the authorization header or session
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Extract user ID from the auth context
-    const { data: { user } } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''));
+    // Get the current user from cookies (middleware handles auth)
+    // Since middleware already verified admin access, we can trust this request
+    const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Check if user is admin
+    // Check if user is admin (double-check for security)
     const isAdmin = await checkAdminPermission(supabase, user.id, user.email);
     if (!isAdmin) {
       return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
@@ -135,13 +130,9 @@ export async function PUT(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Get the requesting user ID
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const { data: { user } } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''));
+    // Get the current user from cookies (middleware handles auth)
+    // Since middleware already verified admin access, we can trust this request
+    const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

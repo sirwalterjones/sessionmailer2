@@ -128,19 +128,9 @@ export default function AdminDashboard() {
           return;
         }
         
-        // Get the user's session token from the current session
-        const { data: { session } } = await supabase.auth.getSession();
-        const token = session?.access_token;
-        
-        if (!token) {
-          setError('No authentication token available - please refresh the page');
-          return;
-        }
-        
-        // Fetch users
+        // Fetch users (middleware handles authentication)
         const usersResponse = await fetch('/api/admin/users', {
           headers: {
-            'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
           }
         });
@@ -154,10 +144,9 @@ export default function AdminDashboard() {
           setError(`Failed to load users: ${errorData.error || usersResponse.statusText}`);
         }
         
-        // Fetch analytics
+        // Fetch analytics (middleware handles authentication)
         const analyticsResponse = await fetch('/api/admin/analytics', {
           headers: {
-            'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
           }
         });
@@ -190,20 +179,10 @@ export default function AdminDashboard() {
     setSuccess("");
 
     try {
-      // Get the user's session token
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-      
-      if (!token) {
-        setError('No authentication token available');
-        return;
-      }
-
       const response = await fetch('/api/admin/users', {
         method: 'PUT',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           userId,
@@ -220,7 +199,6 @@ export default function AdminDashboard() {
         // Refresh the users list to get updated data
         const usersResponse = await fetch('/api/admin/users', {
           headers: {
-            'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
           }
         });
