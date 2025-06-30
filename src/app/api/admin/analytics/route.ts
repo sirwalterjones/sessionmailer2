@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { Database } from '@/lib/supabase';
+import { getAuthenticatedUser, checkAdminPermission } from '@/lib/auth-server';
 
-function getSupabaseClient() {
+function getSupabaseServiceClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   
@@ -13,48 +14,23 @@ function getSupabaseClient() {
   return createClient<Database>(supabaseUrl, supabaseKey);
 }
 
-async function checkAdminPermission(supabase: any, userId: string, userEmail?: string) {
-  // Special bypass for walterjonesjr@gmail.com
-  if (userEmail === 'walterjonesjr@gmail.com') {
-    return true;
-  }
-  
-  const { data: profile, error } = await supabase
-    .from('profiles')
-    .select('is_admin')
-    .eq('id', userId)
-    .single();
-    
-  if (error || !profile?.is_admin) {
-    return false;
-  }
-  
-  return true;
-}
-
 // GET - Fetch analytics data
 export async function GET(request: NextRequest) {
   try {
-    const supabase = getSupabaseClient();
-    
-    // Get the requesting user ID from the authorization header or session
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Extract user ID from the auth context
-    const { data: { user } } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''));
+    // Get the authenticated user from cookies
+    const user = await getAuthenticatedUser();
     
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Check if user is admin
-    const isAdmin = await checkAdminPermission(supabase, user.id, user.email);
+    const isAdmin = await checkAdminPermission(user.id, user.email);
     if (!isAdmin) {
       return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
     }
+
+    const supabase = getSupabaseServiceClient();
 
     // Get current date for time-based queries
     const now = new Date();

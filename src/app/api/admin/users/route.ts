@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { Database } from '@/lib/supabase';
+import { getAuthenticatedUser, checkAdminPermission } from '@/lib/auth-server';
 
-function getSupabaseClient() {
+function getSupabaseServiceClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   
@@ -13,43 +14,23 @@ function getSupabaseClient() {
   return createClient<Database>(supabaseUrl, supabaseKey);
 }
 
-async function checkAdminPermission(supabase: any, userId: string, userEmail?: string) {
-  // Special bypass for walterjonesjr@gmail.com
-  if (userEmail === 'walterjonesjr@gmail.com') {
-    return true;
-  }
-  
-  const { data: profile, error } = await supabase
-    .from('profiles')
-    .select('is_admin')
-    .eq('id', userId)
-    .single();
-    
-  if (error || !profile?.is_admin) {
-    return false;
-  }
-  
-  return true;
-}
-
 // GET - Fetch all users with their profiles and project counts
 export async function GET(request: NextRequest) {
   try {
-    const supabase = getSupabaseClient();
-    
-    // Get the current user from cookies (middleware handles auth)
-    // Since middleware already verified admin access, we can trust this request
-    const { data: { user } } = await supabase.auth.getUser();
+    // Get the authenticated user from cookies
+    const user = await getAuthenticatedUser();
     
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Check if user is admin (double-check for security)
-    const isAdmin = await checkAdminPermission(supabase, user.id, user.email);
+    const isAdmin = await checkAdminPermission(user.id, user.email);
     if (!isAdmin) {
       return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
     }
+
+    const supabase = getSupabaseServiceClient();
 
     // Fetch all users from auth.users with their profiles
     const { data: authUsers, error: authError } = await supabase.auth.admin.listUsers();
@@ -120,7 +101,6 @@ export async function GET(request: NextRequest) {
 // PUT - Update user (reset password, toggle premium, etc.)
 export async function PUT(request: NextRequest) {
   try {
-    const supabase = getSupabaseClient();
     const body = await request.json();
     const { userId, action, ...updateData } = body;
 
@@ -130,19 +110,20 @@ export async function PUT(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Get the current user from cookies (middleware handles auth)
-    // Since middleware already verified admin access, we can trust this request
-    const { data: { user } } = await supabase.auth.getUser();
+    // Get the authenticated user from cookies
+    const user = await getAuthenticatedUser();
     
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Check if user is admin
-    const isAdmin = await checkAdminPermission(supabase, user.id, user.email);
+    const isAdmin = await checkAdminPermission(user.id, user.email);
     if (!isAdmin) {
       return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
     }
+
+    const supabase = getSupabaseServiceClient();
 
     let result;
 

@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { Database } from '@/lib/supabase';
+import { getAuthenticatedUser, checkAdminPermission } from '@/lib/auth-server';
 
-function getSupabaseClient() {
+function getSupabaseServiceClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   
@@ -9,12 +11,25 @@ function getSupabaseClient() {
     throw new Error('Missing Supabase environment variables');
   }
   
-  return createClient(supabaseUrl, supabaseKey);
+  return createClient<Database>(supabaseUrl, supabaseKey);
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = getSupabaseClient();
+    // Get the authenticated user from cookies
+    const user = await getAuthenticatedUser();
+    
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Check if user is admin
+    const isAdmin = await checkAdminPermission(user.id, user.email);
+    if (!isAdmin) {
+      return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
+    }
+
+    const supabase = getSupabaseServiceClient();
     const body = await request.json();
     const { requestId, action } = body;
 
@@ -24,14 +39,6 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-
-    // Get the current user (admin)
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // For now, we'll assume the admin is valid (in a real app, you'd verify the admin status)
     // Get the access request details
     const { data: accessRequest, error: fetchError } = await supabase
       .from('access_requests')
@@ -54,7 +61,7 @@ export async function POST(request: NextRequest) {
         .update({
           status: 'approved',
           reviewed_at: new Date().toISOString(),
-          reviewed_by: 'admin' // In a real app, you'd use the actual admin user ID
+          reviewed_by: user.id
         })
         .eq('id', requestId);
 
@@ -103,7 +110,7 @@ export async function POST(request: NextRequest) {
         .update({
           status: 'rejected',
           reviewed_at: new Date().toISOString(),
-          reviewed_by: 'admin'
+          reviewed_by: user.id
         })
         .eq('id', requestId);
 

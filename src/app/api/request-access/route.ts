@@ -38,65 +38,11 @@ export async function POST(request: NextRequest) {
       });
 
     if (insertError) {
-      // If the table doesn't exist, let's create it on the fly
-      if (insertError.code === '42P01') {
-        // Create the table
-        await supabase.rpc('exec_sql', {
-          sql: `
-            CREATE TABLE IF NOT EXISTS public.access_requests (
-              id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-              user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
-              user_email TEXT NOT NULL,
-              payment_confirmation TEXT NOT NULL,
-              status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
-              requested_at TIMESTAMP WITH TIME ZONE,
-              reviewed_at TIMESTAMP WITH TIME ZONE,
-              reviewed_by UUID REFERENCES auth.users(id),
-              admin_notes TEXT,
-              created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-            );
-            
-            ALTER TABLE public.access_requests ENABLE ROW LEVEL SECURITY;
-            
-            CREATE POLICY "Users can view own requests" ON public.access_requests
-              FOR SELECT USING (auth.uid() = user_id);
-              
-            CREATE POLICY "Admins can view all requests" ON public.access_requests
-              FOR ALL USING (
-                EXISTS (
-                  SELECT 1 FROM public.profiles 
-                  WHERE id = auth.uid() AND is_admin = true
-                )
-              );
-          `
-        });
-
-        // Try the insert again
-        const { error: retryError } = await supabase
-          .from('access_requests')
-          .insert({
-            user_id: userId,
-            user_email: userEmail,
-            payment_confirmation: paymentConfirmation,
-            status: 'pending',
-            requested_at: requestedAt,
-            created_at: new Date().toISOString()
-          });
-
-        if (retryError) {
-          console.error('Error creating access request:', retryError);
-          return NextResponse.json(
-            { error: 'Failed to submit access request' },
-            { status: 500 }
-          );
-        }
-      } else {
-        console.error('Error creating access request:', insertError);
-        return NextResponse.json(
-          { error: 'Failed to submit access request' },
-          { status: 500 }
-        );
-      }
+      console.error('Error creating access request:', insertError);
+      return NextResponse.json(
+        { error: 'Failed to submit access request' },
+        { status: 500 }
+      );
     }
 
     // Send email notification to Walt (you can use a service like Resend, SendGrid, or just log it)
