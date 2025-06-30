@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,6 +28,32 @@ export default function SimplePaymentWall({ userEmail, userId, onAccessRequested
   const [paymentConfirmation, setPaymentConfirmation] = useState('');
   const [accessRequested, setAccessRequested] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [paypalLoaded, setPaypalLoaded] = useState(false);
+
+  // Load PayPal SDK
+  useEffect(() => {
+    if (typeof window !== 'undefined' && !window.paypal) {
+      const script = document.createElement('script');
+      script.src = 'https://www.paypal.com/sdk/js?client-id=BAAmuN94_v2zr0Yp_fwhXxaML0nV1hz1xnBqJ1e63TCd9Y4-slb-3b9nqqpqPZRVRmqovfa0I9VwvWQ0Zo&components=hosted-buttons&enable-funding=venmo&currency=USD';
+      script.async = true;
+      script.onload = () => {
+        setPaypalLoaded(true);
+        initializePayPalButton();
+      };
+      document.body.appendChild(script);
+    } else if (window.paypal) {
+      setPaypalLoaded(true);
+      initializePayPalButton();
+    }
+  }, []);
+
+  const initializePayPalButton = () => {
+    if (window.paypal && document.getElementById('paypal-button-container')) {
+      window.paypal.HostedButtons({
+        hostedButtonId: "4NN6A85J736E2"
+      }).render("#paypal-button-container");
+    }
+  };
 
   const copyEmail = async () => {
     try {
@@ -37,13 +63,6 @@ export default function SimplePaymentWall({ userEmail, userId, onAccessRequested
     } catch (err) {
       console.error('Failed to copy email');
     }
-  };
-
-  const handlePayPalRedirect = () => {
-    // Direct PayPal payment link with return URL
-    const returnUrl = encodeURIComponent(`${window.location.origin}/auth/subscription?payment=success`);
-    const paypalUrl = `https://www.paypal.com/paypalme/walterjonesjr@gmail.com?amount=10&note=SessionMailer Monthly Subscription - ${userEmail}&return=${returnUrl}`;
-    window.open(paypalUrl, '_blank');
   };
 
   const requestAccess = async () => {
@@ -107,15 +126,15 @@ export default function SimplePaymentWall({ userEmail, userId, onAccessRequested
         </div>
         <CardTitle className="text-2xl">SessionMailer Access</CardTitle>
         <CardDescription>
-          $10/month subscription required to use SessionMailer
+          $10 payment required to access SessionMailer
         </CardDescription>
       </CardHeader>
       
       <CardContent className="space-y-6">
         {/* Pricing */}
         <div className="text-center space-y-2">
-          <div className="text-3xl font-bold">$10<span className="text-lg font-normal text-muted-foreground">/month</span></div>
-          <p className="text-sm text-muted-foreground">Professional email templates for photographers</p>
+          <div className="text-3xl font-bold">$10<span className="text-lg font-normal text-muted-foreground"> one-time</span></div>
+          <p className="text-sm text-muted-foreground">Lifetime access to professional email templates</p>
         </div>
 
         <Separator />
@@ -124,19 +143,39 @@ export default function SimplePaymentWall({ userEmail, userId, onAccessRequested
         <div className="space-y-4">
           <h3 className="font-semibold text-center">Complete Your Payment:</h3>
           
-          {/* PayPal Option */}
+          {/* PayPal Button Container */}
           <div className="space-y-2">
-            <Button
-              onClick={handlePayPalRedirect}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              <CreditCard className="h-4 w-4 mr-2" />
-              Pay with PayPal ($10/month)
-              <ExternalLink className="h-4 w-4 ml-2" />
-            </Button>
+            <div id="paypal-button-container" className="w-full">
+              {!paypalLoaded && (
+                <Button 
+                  disabled 
+                  className="w-full bg-blue-600 text-white"
+                >
+                  <CreditCard className="h-4 w-4 mr-2" />
+                  Loading PayPal...
+                </Button>
+              )}
+            </div>
             <p className="text-xs text-center text-muted-foreground">
-              Secure automatic monthly billing
+              Secure $10 payment via PayPal
             </p>
+          </div>
+          
+          {/* Manual Payment Option */}
+          <div className="text-center">
+            <p className="text-sm text-muted-foreground mb-2">Or send manually:</p>
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <code className="bg-gray-100 px-2 py-1 rounded text-sm">walterjonesjr@gmail.com</code>
+              <Button
+                onClick={copyEmail}
+                variant="outline"
+                size="sm"
+              >
+                <Copy className="h-3 w-3" />
+                {copied ? 'Copied!' : 'Copy'}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">Send $10 with note: "SessionMailer - {userEmail}"</p>
           </div>
         </div>
 
