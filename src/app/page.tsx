@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowRight, Mail, Check, Star, Camera, Sparkles, Palette, Clock, Zap } from "lucide-react";
+import { ArrowRight, Mail, Check, Star, Camera, Sparkles, Palette, Clock, Zap, CheckCircle } from "lucide-react";
 
 export default function LandingPage() {
   return (
