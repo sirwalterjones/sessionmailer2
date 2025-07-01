@@ -1,0 +1,42 @@
+{
+  "name": "SessionMailer - Professional Email Templates for Photographers",
+  "short_name": "SessionMailer",
+  "description": "Create beautiful, professional email templates from your usesession.com photo sessions",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#6366f1",
+  "orientation": "portrait-primary",
+  "categories": ["business", "productivity", "photography"],
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/og-image.png",
+      "sizes": "1200x630",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "SessionMailer Dashboard"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Create Template",
+      "short_name": "Create",
+      "description": "Create a new email template",
+      "url": "/dashboard",
+      "icons": [{ "src": "/favicon.svg", "sizes": "192x192" }]
+    }
+  ]
+}

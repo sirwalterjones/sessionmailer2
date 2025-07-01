@@ -148,6 +148,120 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* How to Use Section */}
+      <section className="py-20 px-4 bg-white">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-16">
+            <Badge variant="secondary" className="mb-6 bg-blue-100 text-blue-700 hover:bg-blue-200">
+              <Mail className="h-3 w-3 mr-1" />
+              Easy to Use
+            </Badge>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">
+              From Session to Email in 3 Simple Steps
+            </h2>
+            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+              SessionMailer generates ready-to-use HTML that works with all major email platforms
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+            {/* Steps */}
+            <div className="space-y-8">
+              <div className="flex gap-4">
+                <div className="flex-shrink-0 w-10 h-10 bg-gradient-to-r from-purple-600 to-blue-600 rounded-full flex items-center justify-center text-white font-bold">
+                  1
+                </div>
+                <div>
+                  <h3 className="text-xl font-semibold mb-2">Paste Your Session URL</h3>
+                  <p className="text-gray-600">Copy your usesession.com photo session link and paste it into SessionMailer</p>
+                </div>
+              </div>
+
+              <div className="flex gap-4">
+                <div className="flex-shrink-0 w-10 h-10 bg-gradient-to-r from-purple-600 to-blue-600 rounded-full flex items-center justify-center text-white font-bold">
+                  2
+                </div>
+                <div>
+                  <h3 className="text-xl font-semibold mb-2">Customize Your Design</h3>
+                  <p className="text-gray-600">Choose colors, fonts, and styling to match your brand perfectly</p>
+                </div>
+              </div>
+
+              <div className="flex gap-4">
+                <div className="flex-shrink-0 w-10 h-10 bg-gradient-to-r from-purple-600 to-blue-600 rounded-full flex items-center justify-center text-white font-bold">
+                  3
+                </div>
+                <div>
+                  <h3 className="text-xl font-semibold mb-2">Copy & Paste HTML</h3>
+                  <p className="text-gray-600">Get professional HTML code that works in any email platform</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Email Platform Instructions */}
+            <div className="bg-gradient-to-br from-gray-50 to-blue-50 rounded-2xl p-8">
+              <h3 className="text-2xl font-bold mb-6 text-center">Works With Your Email Platform</h3>
+              
+              <div className="space-y-6">
+                <div className="bg-white rounded-lg p-4 shadow-sm">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                      <Mail className="h-4 w-4 text-blue-600" />
+                    </div>
+                    <h4 className="font-semibold">Mailchimp, Constant Contact, ConvertKit</h4>
+                  </div>
+                  <p className="text-sm text-gray-600">
+                    1. Create new campaign → Choose "Code your own" or "HTML" template<br/>
+                    2. Paste SessionMailer HTML into the editor<br/>
+                    3. Add your recipients and send!
+                  </p>
+                </div>
+
+                <div className="bg-white rounded-lg p-4 shadow-sm">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
+                      <Mail className="h-4 w-4 text-purple-600" />
+                    </div>
+                    <h4 className="font-semibold">Gmail, Outlook, Apple Mail</h4>
+                  </div>
+                  <p className="text-sm text-gray-600">
+                    1. Compose new email → Switch to HTML view<br/>
+                    2. Paste the HTML code from SessionMailer<br/>
+                    3. Switch back to normal view to see your beautiful email!
+                  </p>
+                </div>
+
+                <div className="bg-white rounded-lg p-4 shadow-sm">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                      <Mail className="h-4 w-4 text-green-600" />
+                    </div>
+                    <h4 className="font-semibold">HubSpot, ActiveCampaign, Klaviyo</h4>
+                  </div>
+                  <p className="text-sm text-gray-600">
+                    1. Create email → Select "Custom HTML" or "Code" option<br/>
+                    2. Clear existing code and paste SessionMailer HTML<br/>
+                    3. Preview and send to your contact lists!
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="flex items-start gap-3">
+                  <CheckCircle className="h-5 w-5 text-blue-600 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-blue-800">Pro Tip:</p>
+                    <p className="text-sm text-blue-700">
+                      SessionMailer generates email-compatible HTML with inline styles, so your emails will look perfect across all email clients and devices!
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Pricing Section */}
       <section className="py-20 px-4 bg-gradient-to-br from-gray-50 to-blue-50">
         <div className="max-w-4xl mx-auto text-center">

@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OG Image Generator</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: Inter, sans-serif;
+        }
+        
+        .og-image {
+            width: 1200px;
+            height: 630px;
+            background: linear-gradient(135deg, #6366f1 0%, #3b82f6 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .og-image::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle at 30% 70%, rgba(255,255,255,0.1) 0%, transparent 50%);
+            animation: float 6s ease-in-out infinite;
+        }
+        
+        .content {
+            text-align: center;
+            color: white;
+            z-index: 2;
+            max-width: 900px;
+            padding: 40px;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            margin-bottom: 32px;
+        }
+        
+        .logo-icon {
+            width: 64px;
+            height: 64px;
+            background: linear-gradient(135deg, #8b5cf6 0%, #3b82f6 100%);
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+        
+        .logo-icon::after {
+            content: '📧';
+            font-size: 32px;
+        }
+        
+        .logo-text {
+            font-size: 48px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #ffffff 0%, #e2e8f0 100%);
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+        }
+        
+        .tagline {
+            font-size: 36px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .description {
+            font-size: 24px;
+            opacity: 0.9;
+            margin-bottom: 32px;
+            line-height: 1.4;
+        }
+        
+        .features {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            margin-bottom: 32px;
+        }
+        
+        .feature {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 18px;
+            font-weight: 500;
+        }
+        
+        .feature::before {
+            content: '✨';
+            font-size: 20px;
+        }
+        
+        .price {
+            background: rgba(255,255,255,0.2);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 16px 32px;
+            display: inline-block;
+            font-size: 24px;
+            font-weight: 600;
+            border: 1px solid rgba(255,255,255,0.3);
+        }
+        
+        .price-amount {
+            font-size: 36px;
+            color: #fbbf24;
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-20px) rotate(1deg); }
+        }
+        
+        /* Square version */
+        .og-image-square {
+            width: 1200px;
+            height: 1200px;
+        }
+        
+        .og-image-square .content {
+            max-width: 800px;
+        }
+        
+        .og-image-square .logo-icon {
+            width: 120px;
+            height: 120px;
+            border-radius: 24px;
+        }
+        
+        .og-image-square .logo-icon::after {
+            font-size: 64px;
+        }
+        
+        .og-image-square .logo-text {
+            font-size: 64px;
+        }
+        
+        .og-image-square .tagline {
+            font-size: 48px;
+        }
+        
+        .og-image-square .description {
+            font-size: 32px;
+        }
+        
+        .og-image-square .features {
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .og-image-square .feature {
+            font-size: 24px;
+            justify-content: center;
+        }
+    </style>
+</head>
+<body>
+    <!-- Main OG Image (1200x630) -->
+    <div class="og-image" id="og-main">
+        <div class="content">
+            <div class="logo">
+                <div class="logo-icon"></div>
+                <div class="logo-text">SessionMailer</div>
+            </div>
+            
+            <div class="tagline">Transform Photo Sessions Into Beautiful Emails</div>
+            
+            <div class="description">
+                Convert your usesession.com photo sessions into stunning, professional email templates in seconds
+            </div>
+            
+            <div class="features">
+                <div class="feature">Unlimited Templates</div>
+                <div class="feature">Full Customization</div>
+                <div class="feature">Professional Design</div>
+            </div>
+            
+            <div class="price">
+                Only <span class="price-amount">$10</span>/month
+            </div>
+        </div>
+    </div>
+    
+    <!-- Square OG Image (1200x1200) -->
+    <div class="og-image og-image-square" id="og-square" style="margin-top: 40px;">
+        <div class="content">
+            <div class="logo">
+                <div class="logo-icon"></div>
+                <div class="logo-text">SessionMailer</div>
+            </div>
+            
+            <div class="tagline">Professional Email Templates</div>
+            
+            <div class="description">
+                For Photographers Using usesession.com
+            </div>
+            
+            <div class="features">
+                <div class="feature">Instant Generation</div>
+                <div class="feature">Custom Branding</div>
+                <div class="feature">Multiple Sessions</div>
+                <div class="feature">Save & Manage</div>
+            </div>
+            
+            <div class="price">
+                Only <span class="price-amount">$10</span>/month
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Instructions for generating the images
+        console.log(`
+To generate OG images:
+1. Open this HTML file in a browser
+2. Take screenshots of each image section:
+   - First image: 1200x630px (save as og-image.png)
+   - Second image: 1200x1200px (save as og-image-square.png)
+3. Place both images in your public/ folder
+4. Or use a tool like Puppeteer to automate this
+
+The images are designed to look great on:
+- Facebook
+- Twitter/X
+- LinkedIn  
+- Discord
+- Slack
+- Any other social platform
+        `);
+    </script>
+</body>
+</html>

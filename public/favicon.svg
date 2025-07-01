@@ -1,0 +1,19 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#6366f1;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#3b82f6;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background rounded rectangle -->
+  <rect width="32" height="32" rx="8" fill="url(#gradient)"/>
+  
+  <!-- Email icon -->
+  <path d="M6 10L16 16L26 10V8C26 7.44772 25.5523 7 25 7H7C6.44772 7 6 7.44772 6 8V10Z" fill="white"/>
+  <path d="M6 12V22C6 22.5523 6.44772 23 7 23H25C25.5523 23 26 22.5523 26 22V12L16 18L6 12Z" fill="white"/>
+  
+  <!-- Camera accent -->
+  <circle cx="23" cy="9" r="3" fill="#fbbf24"/>
+  <circle cx="23" cy="9" r="1.5" fill="white"/>
+</svg>
