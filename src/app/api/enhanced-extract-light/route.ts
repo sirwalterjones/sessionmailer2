@@ -242,23 +242,30 @@ function extractSessionDataFromHTML($: cheerio.Root, url: string) {
   const timeSlots: Array<{time: string, bookingUrl?: string}> = [];
   const seenTimes = new Set<string>();
   
-  // Primary time slot detection
-  $('[class*="time"], .time, [data-time], [class*="slot"], .slot, button, a[href*="time"], a[href*="book"]').each((_index: number, el: cheerio.Element) => {
+  // Primary time slot detection - focus on booking elements
+  $('[class*="time"], .time, [data-time], [class*="slot"], .slot, [class*="available"], [class*="booking"], button, .btn, a[href*="time"], a[href*="book"]').each((_index: number, el: cheerio.Element) => {
     const time = $(el).text().trim();
-    const timeMatch = time.match(/\d{1,2}:\d{2}\s*(AM|PM|am|pm)?/i);
+    const timeMatch = time.match(/\b\d{1,2}:\d{2}\s*(AM|PM)\b/i);
+    
     if (timeMatch && !seenTimes.has(timeMatch[0])) {
-      seenTimes.add(timeMatch[0]);
-      let bookingUrl = '';
-      
-      // Try to extract booking URL
-      if ((el as any).tagName === 'a') {
-        bookingUrl = $(el).attr('href') || '';
+      // Validate time format and filter out invalid times
+      const timeStr = timeMatch[0].trim();
+      if (timeStr.match(/^([1-9]|1[0-2]):[0-5]\d\s*(AM|PM)$/i) && 
+          !timeStr.match(/^(19|20)\d{2}/)) { // Not a year
+        
+        seenTimes.add(timeStr);
+        let bookingUrl = '';
+        
+        // Try to extract booking URL
+        if ((el as any).tagName === 'a') {
+          bookingUrl = $(el).attr('href') || '';
+        }
+        
+        timeSlots.push({ 
+          time: timeStr,
+          bookingUrl: bookingUrl || undefined
+        });
       }
-      
-      timeSlots.push({ 
-        time: timeMatch[0],
-        bookingUrl: bookingUrl || undefined
-      });
     }
   });
   
@@ -274,14 +281,22 @@ function extractSessionDataFromHTML($: cheerio.Root, url: string) {
     for (const pattern of timePatterns) {
       const timeMatches = bodyText.match(pattern);
       if (timeMatches) {
-        timeMatches.slice(0, 8).forEach(time => { // Limit to 8 times
-          const cleanTime = time.trim();
-          if (!seenTimes.has(cleanTime)) {
-            seenTimes.add(cleanTime);
-            timeSlots.push({ time: cleanTime });
-          }
+        // Filter and validate times
+        const validTimes = timeMatches
+          .map(time => time.trim())
+          .filter(time => {
+            return time.match(/^([1-9]|1[0-2]):[0-5]\d\s*(AM|PM)$/i) && // Valid format
+                   !time.match(/^(19|20)\d{2}/) && // Not a year
+                   !seenTimes.has(time);
+          })
+          .slice(0, 6); // Limit to 6 times
+        
+        validTimes.forEach(cleanTime => {
+          seenTimes.add(cleanTime);
+          timeSlots.push({ time: cleanTime });
         });
-        break; // Use first successful pattern
+        
+        if (validTimes.length > 0) break; // Use first successful pattern that yields valid times
       }
     }
   }
@@ -321,7 +336,7 @@ function extractDateFromText(text: string): string | null {
     }
   }
   
-  return dates.length > 0 ? dates.join(', ') : null;
+  return dates.length > 3 ? 'Multiple Dates Available' : (dates.length > 0 ? dates.join(', ') : null);
 }
 
 function createFallbackDescription(url: string): string {

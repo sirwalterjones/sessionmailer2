@@ -143,7 +143,7 @@ function extractTextContent(html: string): {
     }
   }
   
-  const date = dates.length > 0 ? dates.join(', ') : '';
+  const date = dates.length > 3 ? 'Multiple Dates Available' : (dates.length > 0 ? dates.join(', ') : '');
 
   // Extract location information
   let location = "";
