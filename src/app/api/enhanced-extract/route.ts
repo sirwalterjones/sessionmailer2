@@ -268,51 +268,127 @@ export async function POST(request: NextRequest) {
            const dateTimePairs: Array<{date: string, times: string[]}> = [];
            const seenDateTimes = new Set<string>();
            
-           // First, try to find structured date-time combinations in specific sections
-           const scheduleSections = document.querySelectorAll('h3, .date, [class*="date"], [class*="when"], .when, [class*="schedule"], .schedule, .session-info, [class*="session"], [class*="time"], .booking, [class*="booking"], [class*="available"]');
+           // Strategy 1: Look for structured session containers or date blocks
+           const sessionContainers = document.querySelectorAll('[class*="session"], [class*="date"], [class*="day"], [class*="schedule"], [class*="booking"], [class*="event"], .card, .item, [class*="slot"]');
            
-           for (const section of Array.from(scheduleSections)) {
-             const sectionText = section.textContent?.trim() || '';
-             const parentElement = section.parentElement;
-             const parentText = parentElement?.textContent?.trim() || '';
+           for (const container of Array.from(sessionContainers)) {
+             const containerText = container.textContent?.trim() || '';
              
-             // Skip sections that look like navigation, headers, or footers
-             const sectionClass = section.className.toLowerCase();
-             const parentClass = parentElement?.className.toLowerCase() || '';
-             const skipPatterns = ['nav', 'header', 'footer', 'menu', 'logo', 'copyright', 'social'];
+             // Skip if container is too small or looks like navigation
+             if (containerText.length < 10) continue;
              
-             if (skipPatterns.some(pattern => sectionClass.includes(pattern) || parentClass.includes(pattern))) {
-               continue;
-             }
+             const containerClass = container.className.toLowerCase();
+             const skipPatterns = ['nav', 'header', 'footer', 'menu', 'logo', 'copyright', 'social', 'breadcrumb'];
+             if (skipPatterns.some(pattern => containerClass.includes(pattern))) continue;
              
-             // Look for structured booking sections with times
-             const contextText = sectionText + ' ' + parentText;
+             // Look for a date in this container
+             const dateMatch = containerText.match(/(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),?\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4}/i);
              
-             // Enhanced pattern to find date-time combinations more accurately
-             const enhancedDateTimePattern = /(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),?\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4}[\s\S]*?(?=(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)|$)/gi;
-             const dateTimeMatches = contextText.match(enhancedDateTimePattern);
-             
-             if (dateTimeMatches) {
-               dateTimeMatches.forEach(match => {
-                 const dateMatch = match.match(/(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),?\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4}/i);
+             if (dateMatch) {
+               const dateStr = dateMatch[0].trim();
+               
+               // Find all time slots specifically within this container
+               const containerTimes: string[] = [];
+               
+               // Look for interactive time elements within this container
+               const timeElements = container.querySelectorAll('button, a, span, div, [class*="time"], [class*="slot"]');
+               
+               for (const timeEl of Array.from(timeElements)) {
+                 const timeText = timeEl.textContent?.trim() || '';
+                 const timeMatch = timeText.match(/\b\d{1,2}:\d{2}\s*(?:AM|PM)\b/i);
                  
-                 if (dateMatch) {
-                   const dateStr = dateMatch[0].trim();
-                   
-                   // Look for times within this date section (within 200 characters)
-                   const dateSectionText = match.substring(0, 200);
-                   const timeMatches = dateSectionText.match(/\b\d{1,2}:\d{2}\s*(?:AM|PM)\b/gi);
-                   
-                   if (timeMatches && timeMatches.length > 0) {
-                     const uniqueKey = `${dateStr}-${timeMatches.join('-')}`;
-                     
-                     if (!seenDateTimes.has(uniqueKey)) {
-                       seenDateTimes.add(uniqueKey);
-                       dateTimePairs.push({
-                         date: dateStr,
-                         times: timeMatches.map(t => t.trim())
-                       });
+                 if (timeMatch) {
+                   const timeStr = timeMatch[0].trim();
+                   if (timeStr.match(/^([1-9]|1[0-2]):[0-5]\d\s*(AM|PM)$/i) && 
+                       !containerTimes.includes(timeStr)) {
+                     containerTimes.push(timeStr);
+                   }
+                 }
+               }
+               
+               // If no interactive elements found, search the container text for times
+               if (containerTimes.length === 0) {
+                 const timeMatches = containerText.match(/\b\d{1,2}:\d{2}\s*(?:AM|PM)\b/gi);
+                 if (timeMatches) {
+                   timeMatches.forEach(time => {
+                     const timeStr = time.trim();
+                     if (timeStr.match(/^([1-9]|1[0-2]):[0-5]\d\s*(AM|PM)$/i) && 
+                         !containerTimes.includes(timeStr)) {
+                       containerTimes.push(timeStr);
                      }
+                   });
+                 }
+               }
+               
+               // Only add if we found times for this date
+               if (containerTimes.length > 0) {
+                 const uniqueKey = `${dateStr}-${containerTimes.join('-')}`;
+                 if (!seenDateTimes.has(uniqueKey)) {
+                   seenDateTimes.add(uniqueKey);
+                   dateTimePairs.push({
+                     date: dateStr,
+                     times: containerTimes
+                   });
+                 }
+               }
+             }
+           }
+           
+           // Strategy 2: If no structured containers found, try DOM proximity analysis
+           if (dateTimePairs.length === 0) {
+             const pageText = document.body.textContent || '';
+             const datePattern = /(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),?\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4}/gi;
+             const allDates = pageText.match(datePattern);
+             
+             if (allDates) {
+               // For each date, find elements nearby that contain times
+               allDates.forEach(dateStr => {
+                 const cleanDate = dateStr.trim();
+                 const dateTimes: string[] = [];
+                 
+                 // Find all elements that contain this date
+                 const dateElements = document.querySelectorAll('*');
+                 for (const el of Array.from(dateElements)) {
+                   const elText = el.textContent?.trim() || '';
+                   if (elText.includes(cleanDate)) {
+                     // Look for sibling elements or nearby elements with times
+                     const parent = el.parentElement;
+                     const siblings = parent ? Array.from(parent.children) : [];
+                     const nearbyElements = [el, ...siblings];
+                     
+                     if (parent) {
+                       nearbyElements.push(parent);
+                       if (parent.parentElement) {
+                         nearbyElements.push(...Array.from(parent.parentElement.children));
+                       }
+                     }
+                     
+                     for (const nearbyEl of nearbyElements) {
+                       const nearbyText = nearbyEl.textContent?.trim() || '';
+                       const timeMatches = nearbyText.match(/\b\d{1,2}:\d{2}\s*(?:AM|PM)\b/gi);
+                       
+                       if (timeMatches) {
+                         timeMatches.forEach(time => {
+                           const timeStr = time.trim();
+                           if (timeStr.match(/^([1-9]|1[0-2]):[0-5]\d\s*(AM|PM)$/i) && 
+                               !dateTimes.includes(timeStr)) {
+                             dateTimes.push(timeStr);
+                           }
+                         });
+                       }
+                     }
+                     break; // Found the date, move to next
+                   }
+                 }
+                 
+                 if (dateTimes.length > 0) {
+                   const uniqueKey = `${cleanDate}-${dateTimes.join('-')}`;
+                   if (!seenDateTimes.has(uniqueKey)) {
+                     seenDateTimes.add(uniqueKey);
+                     dateTimePairs.push({
+                       date: cleanDate,
+                       times: dateTimes.slice(0, 8) // Limit to 8 times per date
+                     });
                    }
                  }
                });
