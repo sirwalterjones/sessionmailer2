@@ -121,17 +121,29 @@ function extractTextContent(html: string): {
     description = descMatch[1].trim();
   }
 
-  // Extract date information
-  let date = "";
-  const dateMatch =
-    html.match(
-      /\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4}/i,
-    ) ||
-    html.match(/\b\d{1,2}\/\d{1,2}\/\d{4}\b/) ||
-    html.match(/\b\d{4}-\d{2}-\d{2}\b/);
-  if (dateMatch) {
-    date = dateMatch[0].trim();
+  // Extract date information (support multiple dates)
+  const dates: string[] = [];
+  const datePatterns = [
+    /(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),?\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4}/gi,
+    /\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4}/gi,
+    /\b\d{1,2}\/\d{1,2}\/\d{4}\b/g,
+    /\b\d{4}-\d{2}-\d{2}\b/g
+  ];
+  
+  for (const pattern of datePatterns) {
+    const matches = html.match(pattern);
+    if (matches) {
+      matches.forEach(match => {
+        const cleanMatch = match.trim();
+        if (!dates.includes(cleanMatch)) {
+          dates.push(cleanMatch);
+        }
+      });
+      if (dates.length > 0) break;
+    }
   }
+  
+  const date = dates.length > 0 ? dates.join(', ') : '';
 
   // Extract location information
   let location = "";

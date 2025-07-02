@@ -240,21 +240,49 @@ function extractSessionDataFromHTML($: cheerio.Root, url: string) {
   
   // Extract time slots with enhanced detection
   const timeSlots: Array<{time: string, bookingUrl?: string}> = [];
-  $('[class*="time"], .time, [data-time], [class*="slot"], .slot').each((_index: number, el: cheerio.Element) => {
+  const seenTimes = new Set<string>();
+  
+  // Primary time slot detection
+  $('[class*="time"], .time, [data-time], [class*="slot"], .slot, button, a[href*="time"], a[href*="book"]').each((_index: number, el: cheerio.Element) => {
     const time = $(el).text().trim();
-    if (time && time.match(/\d+:\d+/)) {
-      timeSlots.push({ time });
+    const timeMatch = time.match(/\d{1,2}:\d{2}\s*(AM|PM|am|pm)?/i);
+    if (timeMatch && !seenTimes.has(timeMatch[0])) {
+      seenTimes.add(timeMatch[0]);
+      let bookingUrl = '';
+      
+      // Try to extract booking URL
+      if ((el as any).tagName === 'a') {
+        bookingUrl = $(el).attr('href') || '';
+      }
+      
+      timeSlots.push({ 
+        time: timeMatch[0],
+        bookingUrl: bookingUrl || undefined
+      });
     }
   });
   
-  // If no time slots found, try to extract from general text
+  // Secondary: extract from body text with enhanced patterns
   if (timeSlots.length === 0) {
     const bodyText = $('body').text();
-    const timeMatches = bodyText.match(/\d{1,2}:\d{2}\s*(AM|PM|am|pm)/g);
-    if (timeMatches) {
-      timeMatches.slice(0, 5).forEach(time => {
-        timeSlots.push({ time: time.trim() });
-      });
+    const timePatterns = [
+      /\d{1,2}:\d{2}\s*(AM|PM)/gi,
+      /\d{1,2}:\d{2}\s*(am|pm)/gi,
+      /\d{1,2}:\d{2}/g
+    ];
+    
+    for (const pattern of timePatterns) {
+      const timeMatches = bodyText.match(pattern);
+      if (timeMatches) {
+        timeMatches.slice(0, 8).forEach(time => { // Limit to 8 times
+          const cleanTime = time.trim();
+          if (!seenTimes.has(cleanTime)) {
+            seenTimes.add(cleanTime);
+            timeSlots.push({ time: cleanTime });
+          }
+        });
+        break; // Use first successful pattern
+      }
     }
   }
   
@@ -270,22 +298,30 @@ function extractSessionDataFromHTML($: cheerio.Root, url: string) {
 }
 
 function extractDateFromText(text: string): string | null {
-  // Try to extract dates from text content
+  // Try to extract multiple dates from text content
+  const dates: string[] = [];
   const datePatterns = [
-    /\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4}\b/i,
-    /\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2},?\s+\d{4}\b/i,
-    /\b\d{1,2}\/\d{1,2}\/\d{4}\b/,
-    /\b\d{4}-\d{2}-\d{2}\b/
+    /(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),?\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4}/gi,
+    /\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4}\b/gi,
+    /\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2},?\s+\d{4}\b/gi,
+    /\b\d{1,2}\/\d{1,2}\/\d{4}\b/g,
+    /\b\d{4}-\d{2}-\d{2}\b/g
   ];
   
   for (const pattern of datePatterns) {
-    const match = text.match(pattern);
-    if (match) {
-      return match[0];
+    const matches = text.match(pattern);
+    if (matches) {
+      matches.forEach(match => {
+        const cleanMatch = match.trim();
+        if (!dates.includes(cleanMatch)) {
+          dates.push(cleanMatch);
+        }
+      });
+      if (dates.length > 0) break; // Use first successful pattern
     }
   }
   
-  return null;
+  return dates.length > 0 ? dates.join(', ') : null;
 }
 
 function createFallbackDescription(url: string): string {

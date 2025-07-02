@@ -263,18 +263,46 @@ export async function POST(request: NextRequest) {
             }
           }
           
-                     // Extract date
-           let date = '';
-           const dateElements = document.querySelectorAll('h3, .date, [class*="date"]');
+                     // Extract dates (support multiple dates)
+           const dates: string[] = [];
+           const dateElements = document.querySelectorAll('h3, .date, [class*="date"], [class*="when"], .when, [class*="schedule"], .schedule');
            for (const element of Array.from(dateElements)) {
             const text = element.textContent?.trim() || '';
             if (text.match(/(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)/i) ||
                 text.match(/\d{1,2}\/\d{1,2}\/\d{4}/) ||
                 text.match(/(January|February|March|April|May|June|July|August|September|October|November|December)/i)) {
-              date = text;
-              break;
+              // Avoid duplicates
+              if (!dates.includes(text)) {
+                dates.push(text);
+              }
             }
           }
+          
+          // If no structured dates found, search the entire page text
+          if (dates.length === 0) {
+            const pageText = document.body.textContent || '';
+            const datePatterns = [
+              /(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),?\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4}/gi,
+              /(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4}/gi,
+              /\d{1,2}\/\d{1,2}\/\d{4}/g,
+              /\d{4}-\d{2}-\d{2}/g
+            ];
+            
+            for (const pattern of datePatterns) {
+              const matches = pageText.match(pattern);
+              if (matches) {
+                matches.forEach(match => {
+                  const cleanMatch = match.trim();
+                  if (!dates.includes(cleanMatch)) {
+                    dates.push(cleanMatch);
+                  }
+                });
+                if (dates.length > 0) break;
+              }
+            }
+          }
+          
+          const date = dates.length > 0 ? dates.join(', ') : '';
           
                      // Extract location
            let location = '';
@@ -328,13 +356,17 @@ export async function POST(request: NextRequest) {
              }
            }
           
-                     // Extract time slots with booking links
+                     // Extract time slots with enhanced detection
            const timeSlots: Array<{time: string, bookingUrl?: string}> = [];
-           const timeButtons = document.querySelectorAll('button, .time-slot, [class*="time"], a[href*="time"], a[href*="book"]');
+           const seenTimes = new Set<string>();
+           
+           // Primary time slot detection - buttons and interactive elements
+           const timeButtons = document.querySelectorAll('button, .time-slot, [class*="time"], [class*="slot"], .slot, a[href*="time"], a[href*="book"], [data-time]');
            Array.from(timeButtons).forEach(button => {
              const text = button.textContent?.trim() || '';
              const timeMatch = text.match(/\d{1,2}:\d{2}\s*(AM|PM)/i);
-             if (timeMatch) {
+             if (timeMatch && !seenTimes.has(timeMatch[0])) {
+               seenTimes.add(timeMatch[0]);
                let bookingUrl = '';
                
                // Try to find booking URL from the element or its parent
@@ -376,6 +408,33 @@ export async function POST(request: NextRequest) {
                });
              }
            });
+           
+           // Secondary time detection - search entire page text if no structured times found
+           if (timeSlots.length === 0) {
+             const pageText = document.body.textContent || '';
+             const timePatterns = [
+               /\d{1,2}:\d{2}\s*(AM|PM)/gi,
+               /\d{1,2}:\d{2}\s*(am|pm)/gi,
+               /\d{1,2}:\d{2}/g
+             ];
+             
+             for (const pattern of timePatterns) {
+               const matches = pageText.match(pattern);
+               if (matches) {
+                 matches.slice(0, 10).forEach(match => { // Limit to 10 times max
+                   const cleanTime = match.trim();
+                   if (!seenTimes.has(cleanTime)) {
+                     seenTimes.add(cleanTime);
+                     timeSlots.push({
+                       time: cleanTime,
+                       bookingUrl: `${window.location.href}?time=${encodeURIComponent(cleanTime)}`
+                     });
+                   }
+                 });
+                 break; // Use first successful pattern
+               }
+             }
+           }
           
           // Extract images
           const images: string[] = [];
