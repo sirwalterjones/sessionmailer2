@@ -268,33 +268,51 @@ export async function POST(request: NextRequest) {
            const dateTimePairs: Array<{date: string, times: string[]}> = [];
            const seenDateTimes = new Set<string>();
            
-           // First, try to find structured date-time combinations
-           const scheduleSections = document.querySelectorAll('h3, .date, [class*="date"], [class*="when"], .when, [class*="schedule"], .schedule, .session-info, [class*="session"]');
+           // First, try to find structured date-time combinations in specific sections
+           const scheduleSections = document.querySelectorAll('h3, .date, [class*="date"], [class*="when"], .when, [class*="schedule"], .schedule, .session-info, [class*="session"], [class*="time"], .booking, [class*="booking"], [class*="available"]');
            
            for (const section of Array.from(scheduleSections)) {
              const sectionText = section.textContent?.trim() || '';
-             const parentText = section.parentElement?.textContent?.trim() || '';
+             const parentElement = section.parentElement;
+             const parentText = parentElement?.textContent?.trim() || '';
+             
+             // Skip sections that look like navigation, headers, or footers
+             const sectionClass = section.className.toLowerCase();
+             const parentClass = parentElement?.className.toLowerCase() || '';
+             const skipPatterns = ['nav', 'header', 'footer', 'menu', 'logo', 'copyright', 'social'];
+             
+             if (skipPatterns.some(pattern => sectionClass.includes(pattern) || parentClass.includes(pattern))) {
+               continue;
+             }
+             
+             // Look for structured booking sections with times
              const contextText = sectionText + ' ' + parentText;
              
-             // Look for date-time patterns in the same context
-             const dateTimePattern = /(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),?\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4}[^\n]*?(\d{1,2}:\d{2}\s*(?:AM|PM))/gi;
-             const matches = contextText.match(dateTimePattern);
+             // Enhanced pattern to find date-time combinations more accurately
+             const enhancedDateTimePattern = /(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),?\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4}[\s\S]*?(?=(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)|$)/gi;
+             const dateTimeMatches = contextText.match(enhancedDateTimePattern);
              
-             if (matches) {
-               matches.forEach(match => {
+             if (dateTimeMatches) {
+               dateTimeMatches.forEach(match => {
                  const dateMatch = match.match(/(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),?\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4}/i);
-                 const timeMatches = match.match(/\d{1,2}:\d{2}\s*(?:AM|PM)/gi);
                  
-                 if (dateMatch && timeMatches) {
+                 if (dateMatch) {
                    const dateStr = dateMatch[0].trim();
-                   const uniqueKey = `${dateStr}-${timeMatches.join('-')}`;
                    
-                   if (!seenDateTimes.has(uniqueKey)) {
-                     seenDateTimes.add(uniqueKey);
-                     dateTimePairs.push({
-                       date: dateStr,
-                       times: timeMatches.map(t => t.trim())
-                     });
+                   // Look for times within this date section (within 200 characters)
+                   const dateSectionText = match.substring(0, 200);
+                   const timeMatches = dateSectionText.match(/\b\d{1,2}:\d{2}\s*(?:AM|PM)\b/gi);
+                   
+                   if (timeMatches && timeMatches.length > 0) {
+                     const uniqueKey = `${dateStr}-${timeMatches.join('-')}`;
+                     
+                     if (!seenDateTimes.has(uniqueKey)) {
+                       seenDateTimes.add(uniqueKey);
+                       dateTimePairs.push({
+                         date: dateStr,
+                         times: timeMatches.map(t => t.trim())
+                       });
+                     }
                    }
                  }
                });
@@ -327,17 +345,44 @@ export async function POST(request: NextRequest) {
                }
              }
              
-             // Extract all times
+             // Extract times more carefully - look for booking-related sections
              const allTimes: string[] = [];
-             const timePattern = /\d{1,2}:\d{2}\s*(?:AM|PM)/gi;
-             const timeMatches = pageText.match(timePattern);
-             if (timeMatches) {
-               timeMatches.forEach(time => {
-                 const cleanTime = time.trim();
-                 if (!allTimes.includes(cleanTime)) {
-                   allTimes.push(cleanTime);
-                 }
-               });
+             
+             // First try to find times in booking/session related sections
+             const bookingSections = document.querySelectorAll('[class*="time"], [class*="slot"], [class*="available"], [class*="booking"], [class*="session"], button, .btn, [data-time]');
+             
+             for (const bookingSection of Array.from(bookingSections)) {
+               const sectionText = bookingSection.textContent?.trim() || '';
+               const timeMatches = sectionText.match(/\b\d{1,2}:\d{2}\s*(?:AM|PM)\b/gi);
+               
+               if (timeMatches) {
+                 timeMatches.forEach(time => {
+                   const cleanTime = time.trim();
+                   // Filter out obviously wrong times (like years, phone numbers, etc.)
+                   if (!allTimes.includes(cleanTime) && 
+                       !cleanTime.match(/^(19|20)\d{2}/) && // Not a year
+                       cleanTime.match(/^([1-9]|1[0-2]):[0-5]\d\s*(AM|PM)$/i)) { // Valid time format
+                     allTimes.push(cleanTime);
+                   }
+                 });
+               }
+             }
+             
+             // If no times found in structured sections, search page text more carefully
+             if (allTimes.length === 0) {
+               const timePattern = /\b\d{1,2}:\d{2}\s*(?:AM|PM)\b/gi;
+               const timeMatches = pageText.match(timePattern);
+               if (timeMatches) {
+                 // Filter and validate times
+                 timeMatches.forEach(time => {
+                   const cleanTime = time.trim();
+                   if (!allTimes.includes(cleanTime) && 
+                       !cleanTime.match(/^(19|20)\d{2}/) && // Not a year
+                       cleanTime.match(/^([1-9]|1[0-2]):[0-5]\d\s*(AM|PM)$/i)) { // Valid time format
+                     allTimes.push(cleanTime);
+                   }
+                 });
+               }
              }
              
              // Create date-time pairs (each date gets all available times)
@@ -359,8 +404,9 @@ export async function POST(request: NextRequest) {
              }
            }
            
-           // Legacy format for backward compatibility
-           const date = dateTimePairs.map(pair => pair.date).join(', ');
+           // Legacy format for backward compatibility - show "Multiple Dates" if more than 3 dates
+           const allDates = dateTimePairs.map(pair => pair.date);
+           const date = allDates.length > 3 ? 'Multiple Dates Available' : allDates.join(', ');
           
                      // Extract location
            let location = '';
@@ -431,43 +477,57 @@ export async function POST(request: NextRequest) {
              });
            });
            
-           // If no times from date-time pairs, fall back to old extraction method
+           // If no times from date-time pairs, fall back to improved extraction method
            if (timeSlots.length === 0) {
-             const timeButtons = document.querySelectorAll('button, .time-slot, [class*="time"], [class*="slot"], .slot, a[href*="time"], a[href*="book"], [data-time]');
-             Array.from(timeButtons).forEach(button => {
-               const text = button.textContent?.trim() || '';
-               const timeMatch = text.match(/\d{1,2}:\d{2}\s*(AM|PM)/i);
+             // Look for interactive elements with times
+             const timeElements = document.querySelectorAll('button, .time-slot, [class*="time"], [class*="slot"], .slot, a[href*="time"], a[href*="book"], [data-time], .btn, [class*="available"]');
+             
+             Array.from(timeElements).forEach(element => {
+               const text = element.textContent?.trim() || '';
+               const timeMatch = text.match(/\b\d{1,2}:\d{2}\s*(?:AM|PM)\b/i);
+               
                if (timeMatch && !seenTimes.has(timeMatch[0])) {
-                 seenTimes.add(timeMatch[0]);
-                 let bookingUrl = '';
-                 
-                 if (button.tagName === 'A') {
-                   bookingUrl = (button as HTMLAnchorElement).href;
-                 } else {
-                   bookingUrl = `${window.location.href}?time=${encodeURIComponent(timeMatch[0])}`;
+                 // Validate the time format
+                 const timeStr = timeMatch[0].trim();
+                 if (timeStr.match(/^([1-9]|1[0-2]):[0-5]\d\s*(AM|PM)$/i)) {
+                   seenTimes.add(timeStr);
+                   let bookingUrl = '';
+                   
+                   if (element.tagName === 'A') {
+                     bookingUrl = (element as HTMLAnchorElement).href;
+                   } else {
+                     bookingUrl = `${window.location.href}?time=${encodeURIComponent(timeStr)}`;
+                   }
+                   
+                   timeSlots.push({
+                     time: timeStr,
+                     bookingUrl: bookingUrl
+                   });
                  }
-                 
-                 timeSlots.push({
-                   time: timeMatch[0],
-                   bookingUrl: bookingUrl
-                 });
                }
              });
              
-             // Final fallback - search page text
+             // Final fallback - search page text with better filtering
              if (timeSlots.length === 0) {
                const pageText = document.body.textContent || '';
-               const timeMatches = pageText.match(/\d{1,2}:\d{2}\s*(AM|PM)/gi);
+               const timeMatches = pageText.match(/\b\d{1,2}:\d{2}\s*(?:AM|PM)\b/gi);
                if (timeMatches) {
-                 timeMatches.slice(0, 10).forEach(match => {
-                   const cleanTime = match.trim();
-                   if (!seenTimes.has(cleanTime)) {
-                     seenTimes.add(cleanTime);
-                     timeSlots.push({
-                       time: cleanTime,
-                       bookingUrl: `${window.location.href}?time=${encodeURIComponent(cleanTime)}`
-                     });
-                   }
+                 // Filter and validate times, limit to reasonable number
+                 const validTimes = timeMatches
+                   .map(match => match.trim())
+                   .filter(time => {
+                     return time.match(/^([1-9]|1[0-2]):[0-5]\d\s*(AM|PM)$/i) && // Valid format
+                            !time.match(/^(19|20)\d{2}/) && // Not a year
+                            !seenTimes.has(time);
+                   })
+                   .slice(0, 8); // Limit to 8 times
+                 
+                 validTimes.forEach(cleanTime => {
+                   seenTimes.add(cleanTime);
+                   timeSlots.push({
+                     time: cleanTime,
+                     bookingUrl: `${window.location.href}?time=${encodeURIComponent(cleanTime)}`
+                   });
                  });
                }
              }
@@ -892,29 +952,56 @@ function createEmailTemplate(data: any, originalUrl: string, primaryColor: strin
   
   if (dateTimePairs && dateTimePairs.length > 0 && dateTimePairs.some((pair: any) => pair.times.length > 0)) {
     // New date-time pairs format
-    schedulingHtml = `
-      <div style="margin: 25px 0;">
-        <h3 style="font-size: 18px; color: #333; margin: 0 0 15px 0; font-weight: 600;">Available Sessions:</h3>
-        <div class="sessions-container">
-          ${dateTimePairs.map((pair: any) => `
-            <div class="session-date-group" style="margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid ${primaryColor};">
-              <h4 style="margin: 0 0 10px 0; color: ${primaryColor}; font-size: 16px; font-weight: 600;">${pair.date}</h4>
-              ${pair.times.length > 0 ? `
-                <div class="time-slots-container">
-                  ${pair.times.map((time: string) => `
-                    <a href="${originalUrl}?date=${encodeURIComponent(pair.date)}&time=${encodeURIComponent(time)}" target="_blank" style="text-decoration: none;">
-                      <span class="time-slot" style="cursor: pointer; transition: all 0.3s ease; display: inline-block; margin: 3px 5px 3px 0; padding: 8px 16px; background: white; border: 1px solid #dee2e6; border-radius: 20px; font-size: 14px; color: #333;"
-                            onmouseover="this.style.backgroundColor='${primaryColor}'; this.style.color='white'; this.style.borderColor='${primaryColor}'"
-                            onmouseout="this.style.backgroundColor='white'; this.style.color='#333'; this.style.borderColor='#dee2e6'">${time}</span>
-                    </a>
-                  `).join('')}
-                </div>
-              ` : '<p style="margin: 0; color: #666; font-style: italic;">Time slots to be announced</p>'}
-            </div>
-          `).join('')}
+    if (dateTimePairs.length > 6) {
+      // Show simplified view for many dates
+      const allTimesSet = new Set<string>(dateTimePairs.flatMap((pair: any) => pair.times));
+      const allTimes: string[] = Array.from(allTimesSet);
+      schedulingHtml = `
+        <div style="margin: 25px 0;">
+          <h3 style="font-size: 18px; color: #333; margin: 0 0 15px 0; font-weight: 600;">Available Sessions:</h3>
+          <div style="margin-bottom: 15px; padding: 15px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid ${primaryColor};">
+            <h4 style="margin: 0 0 10px 0; color: ${primaryColor}; font-size: 16px; font-weight: 600;">Multiple Dates Available</h4>
+            <p style="margin: 0 0 10px 0; color: #666; font-size: 14px;">Sessions available across ${dateTimePairs.length} different dates</p>
+            ${allTimes.length > 0 ? `
+              <div class="time-slots-container">
+                ${allTimes.slice(0, 8).map((time: string) => `
+                  <a href="${originalUrl}?time=${encodeURIComponent(time)}" target="_blank" style="text-decoration: none;">
+                    <span class="time-slot" style="cursor: pointer; transition: all 0.3s ease; display: inline-block; margin: 3px 5px 3px 0; padding: 8px 16px; background: white; border: 1px solid #dee2e6; border-radius: 20px; font-size: 14px; color: #333;"
+                          onmouseover="this.style.backgroundColor='${primaryColor}'; this.style.color='white'; this.style.borderColor='${primaryColor}'"
+                          onmouseout="this.style.backgroundColor='white'; this.style.color='#333'; this.style.borderColor='#dee2e6'">${time}</span>
+                  </a>
+                `).join('')}
+              </div>
+            ` : '<p style="margin: 0; color: #666; font-style: italic;">Time slots to be announced</p>'}
+          </div>
         </div>
-      </div>
-    `;
+      `;
+    } else {
+      // Show detailed view for fewer dates
+      schedulingHtml = `
+        <div style="margin: 25px 0;">
+          <h3 style="font-size: 18px; color: #333; margin: 0 0 15px 0; font-weight: 600;">Available Sessions:</h3>
+          <div class="sessions-container">
+            ${dateTimePairs.map((pair: any) => `
+              <div class="session-date-group" style="margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid ${primaryColor};">
+                <h4 style="margin: 0 0 10px 0; color: ${primaryColor}; font-size: 16px; font-weight: 600;">${pair.date}</h4>
+                ${pair.times.length > 0 ? `
+                  <div class="time-slots-container">
+                    ${pair.times.map((time: string) => `
+                      <a href="${originalUrl}?date=${encodeURIComponent(pair.date)}&time=${encodeURIComponent(time)}" target="_blank" style="text-decoration: none;">
+                        <span class="time-slot" style="cursor: pointer; transition: all 0.3s ease; display: inline-block; margin: 3px 5px 3px 0; padding: 8px 16px; background: white; border: 1px solid #dee2e6; border-radius: 20px; font-size: 14px; color: #333;"
+                              onmouseover="this.style.backgroundColor='${primaryColor}'; this.style.color='white'; this.style.borderColor='${primaryColor}'"
+                              onmouseout="this.style.backgroundColor='white'; this.style.color='#333'; this.style.borderColor='#dee2e6'">${time}</span>
+                      </a>
+                    `).join('')}
+                  </div>
+                ` : '<p style="margin: 0; color: #666; font-style: italic;">Time slots to be announced</p>'}
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
   } else if (timeSlots.length > 0) {
     // Fallback to legacy time slots format
     schedulingHtml = `
