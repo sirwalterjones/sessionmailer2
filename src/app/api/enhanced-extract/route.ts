@@ -277,7 +277,8 @@ export async function POST(request: NextRequest) {
            
            if (allDatesFound) {
              // Remove duplicates and clean up dates
-             const uniqueDates = [...new Set(allDatesFound.map(date => date.trim()))];
+             const uniqueDatesSet = new Set(allDatesFound.map(date => date.trim()));
+             const uniqueDates = Array.from(uniqueDatesSet);
              
              // For each unique date, try to find associated times
              uniqueDates.forEach(dateStr => {
