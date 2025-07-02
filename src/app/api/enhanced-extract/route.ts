@@ -8,6 +8,7 @@ interface SessionData {
   price: string;
   date: string;
   location: string;
+  dateTimePairs?: Array<{date: string, times: string[]}>;
   timeSlots: Array<{time: string, bookingUrl?: string}>;
   images: string[];
   enhancedEmailHtml: string;
@@ -263,46 +264,103 @@ export async function POST(request: NextRequest) {
             }
           }
           
-                     // Extract dates (support multiple dates)
-           const dates: string[] = [];
-           const dateElements = document.querySelectorAll('h3, .date, [class*="date"], [class*="when"], .when, [class*="schedule"], .schedule');
-           for (const element of Array.from(dateElements)) {
-            const text = element.textContent?.trim() || '';
-            if (text.match(/(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)/i) ||
-                text.match(/\d{1,2}\/\d{1,2}\/\d{4}/) ||
-                text.match(/(January|February|March|April|May|June|July|August|September|October|November|December)/i)) {
-              // Avoid duplicates
-              if (!dates.includes(text)) {
-                dates.push(text);
-              }
-            }
-          }
-          
-          // If no structured dates found, search the entire page text
-          if (dates.length === 0) {
-            const pageText = document.body.textContent || '';
-            const datePatterns = [
-              /(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),?\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4}/gi,
-              /(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4}/gi,
-              /\d{1,2}\/\d{1,2}\/\d{4}/g,
-              /\d{4}-\d{2}-\d{2}/g
-            ];
-            
-            for (const pattern of datePatterns) {
-              const matches = pageText.match(pattern);
-              if (matches) {
-                matches.forEach(match => {
-                  const cleanMatch = match.trim();
-                  if (!dates.includes(cleanMatch)) {
-                    dates.push(cleanMatch);
-                  }
-                });
-                if (dates.length > 0) break;
-              }
-            }
-          }
-          
-          const date = dates.length > 0 ? dates.join(', ') : '';
+                     // Extract date-time pairs
+           const dateTimePairs: Array<{date: string, times: string[]}> = [];
+           const seenDateTimes = new Set<string>();
+           
+           // First, try to find structured date-time combinations
+           const scheduleSections = document.querySelectorAll('h3, .date, [class*="date"], [class*="when"], .when, [class*="schedule"], .schedule, .session-info, [class*="session"]');
+           
+           for (const section of Array.from(scheduleSections)) {
+             const sectionText = section.textContent?.trim() || '';
+             const parentText = section.parentElement?.textContent?.trim() || '';
+             const contextText = sectionText + ' ' + parentText;
+             
+             // Look for date-time patterns in the same context
+             const dateTimePattern = /(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),?\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4}[^\n]*?(\d{1,2}:\d{2}\s*(?:AM|PM))/gi;
+             const matches = contextText.match(dateTimePattern);
+             
+             if (matches) {
+               matches.forEach(match => {
+                 const dateMatch = match.match(/(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),?\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4}/i);
+                 const timeMatches = match.match(/\d{1,2}:\d{2}\s*(?:AM|PM)/gi);
+                 
+                 if (dateMatch && timeMatches) {
+                   const dateStr = dateMatch[0].trim();
+                   const uniqueKey = `${dateStr}-${timeMatches.join('-')}`;
+                   
+                   if (!seenDateTimes.has(uniqueKey)) {
+                     seenDateTimes.add(uniqueKey);
+                     dateTimePairs.push({
+                       date: dateStr,
+                       times: timeMatches.map(t => t.trim())
+                     });
+                   }
+                 }
+               });
+             }
+           }
+           
+           // If no structured date-time pairs found, fall back to separate extraction
+           if (dateTimePairs.length === 0) {
+             const pageText = document.body.textContent || '';
+             
+             // Extract all dates
+             const dates: string[] = [];
+             const datePatterns = [
+               /(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),?\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4}/gi,
+               /(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4}/gi,
+               /\d{1,2}\/\d{1,2}\/\d{4}/g,
+               /\d{4}-\d{2}-\d{2}/g
+             ];
+             
+             for (const pattern of datePatterns) {
+               const matches = pageText.match(pattern);
+               if (matches) {
+                 matches.forEach(match => {
+                   const cleanMatch = match.trim();
+                   if (!dates.includes(cleanMatch)) {
+                     dates.push(cleanMatch);
+                   }
+                 });
+                 if (dates.length > 0) break;
+               }
+             }
+             
+             // Extract all times
+             const allTimes: string[] = [];
+             const timePattern = /\d{1,2}:\d{2}\s*(?:AM|PM)/gi;
+             const timeMatches = pageText.match(timePattern);
+             if (timeMatches) {
+               timeMatches.forEach(time => {
+                 const cleanTime = time.trim();
+                 if (!allTimes.includes(cleanTime)) {
+                   allTimes.push(cleanTime);
+                 }
+               });
+             }
+             
+             // Create date-time pairs (each date gets all available times)
+             if (dates.length > 0 && allTimes.length > 0) {
+               dates.forEach(date => {
+                 dateTimePairs.push({
+                   date: date,
+                   times: allTimes
+                 });
+               });
+             } else if (dates.length > 0) {
+               // Just dates, no times
+               dates.forEach(date => {
+                 dateTimePairs.push({
+                   date: date,
+                   times: []
+                 });
+               });
+             }
+           }
+           
+           // Legacy format for backward compatibility
+           const date = dateTimePairs.map(pair => pair.date).join(', ');
           
                      // Extract location
            let location = '';
@@ -356,72 +414,52 @@ export async function POST(request: NextRequest) {
              }
            }
           
-                     // Extract time slots with enhanced detection
+                     // Legacy time slots extraction for backward compatibility
            const timeSlots: Array<{time: string, bookingUrl?: string}> = [];
            const seenTimes = new Set<string>();
            
-           // Primary time slot detection - buttons and interactive elements
-           const timeButtons = document.querySelectorAll('button, .time-slot, [class*="time"], [class*="slot"], .slot, a[href*="time"], a[href*="book"], [data-time]');
-           Array.from(timeButtons).forEach(button => {
-             const text = button.textContent?.trim() || '';
-             const timeMatch = text.match(/\d{1,2}:\d{2}\s*(AM|PM)/i);
-             if (timeMatch && !seenTimes.has(timeMatch[0])) {
-               seenTimes.add(timeMatch[0]);
-               let bookingUrl = '';
-               
-               // Try to find booking URL from the element or its parent
-               if (button.tagName === 'A') {
-                 bookingUrl = (button as HTMLAnchorElement).href;
-               } else if (button.tagName === 'BUTTON') {
-                 // Look for onclick handlers or data attributes
-                 const onclick = button.getAttribute('onclick') || '';
-                 const dataUrl = button.getAttribute('data-url') || button.getAttribute('data-href') || '';
-                 
-                 if (dataUrl) {
-                   bookingUrl = dataUrl;
-                 } else if (onclick.includes('window.location') || onclick.includes('location.href')) {
-                   const urlMatch = onclick.match(/['"`](https?:\/\/[^'"`]+)['"`]/);
-                   if (urlMatch) {
-                     bookingUrl = urlMatch[1];
-                   }
-                 }
-                 
-                 // Check parent elements for links
-                 let parent = button.parentElement;
-                 while (parent && !bookingUrl) {
-                   if (parent.tagName === 'A') {
-                     bookingUrl = (parent as HTMLAnchorElement).href;
-                     break;
-                   }
-                   parent = parent.parentElement;
-                 }
+           // Extract all unique times from dateTimePairs for legacy support
+           dateTimePairs.forEach(pair => {
+             pair.times.forEach(time => {
+               if (!seenTimes.has(time)) {
+                 seenTimes.add(time);
+                 timeSlots.push({
+                   time: time,
+                   bookingUrl: `${window.location.href}?time=${encodeURIComponent(time)}`
+                 });
                }
-               
-               // If no specific booking URL found, use the main session URL with time parameter
-               if (!bookingUrl) {
-                 bookingUrl = `${window.location.href}?time=${encodeURIComponent(timeMatch[0])}`;
-               }
-               
-               timeSlots.push({
-                 time: timeMatch[0],
-                 bookingUrl: bookingUrl
-               });
-             }
+             });
            });
            
-           // Secondary time detection - search entire page text if no structured times found
+           // If no times from date-time pairs, fall back to old extraction method
            if (timeSlots.length === 0) {
-             const pageText = document.body.textContent || '';
-             const timePatterns = [
-               /\d{1,2}:\d{2}\s*(AM|PM)/gi,
-               /\d{1,2}:\d{2}\s*(am|pm)/gi,
-               /\d{1,2}:\d{2}/g
-             ];
+             const timeButtons = document.querySelectorAll('button, .time-slot, [class*="time"], [class*="slot"], .slot, a[href*="time"], a[href*="book"], [data-time]');
+             Array.from(timeButtons).forEach(button => {
+               const text = button.textContent?.trim() || '';
+               const timeMatch = text.match(/\d{1,2}:\d{2}\s*(AM|PM)/i);
+               if (timeMatch && !seenTimes.has(timeMatch[0])) {
+                 seenTimes.add(timeMatch[0]);
+                 let bookingUrl = '';
+                 
+                 if (button.tagName === 'A') {
+                   bookingUrl = (button as HTMLAnchorElement).href;
+                 } else {
+                   bookingUrl = `${window.location.href}?time=${encodeURIComponent(timeMatch[0])}`;
+                 }
+                 
+                 timeSlots.push({
+                   time: timeMatch[0],
+                   bookingUrl: bookingUrl
+                 });
+               }
+             });
              
-             for (const pattern of timePatterns) {
-               const matches = pageText.match(pattern);
-               if (matches) {
-                 matches.slice(0, 10).forEach(match => { // Limit to 10 times max
+             // Final fallback - search page text
+             if (timeSlots.length === 0) {
+               const pageText = document.body.textContent || '';
+               const timeMatches = pageText.match(/\d{1,2}:\d{2}\s*(AM|PM)/gi);
+               if (timeMatches) {
+                 timeMatches.slice(0, 10).forEach(match => {
                    const cleanTime = match.trim();
                    if (!seenTimes.has(cleanTime)) {
                      seenTimes.add(cleanTime);
@@ -431,7 +469,6 @@ export async function POST(request: NextRequest) {
                      });
                    }
                  });
-                 break; // Use first successful pattern
                }
              }
            }
@@ -621,6 +658,7 @@ export async function POST(request: NextRequest) {
             price,
             date: date || 'Contact for available dates',
             location: location || 'Location details available upon booking',
+            dateTimePairs: dateTimePairs,
             timeSlots: timeSlots.slice(0, 8), // Limit to 8 time slots
             images: images.slice(0, 5) // Limit to 5 images
           };
@@ -657,6 +695,7 @@ export async function POST(request: NextRequest) {
           price: extractedData.price,
           date: extractedData.date,
           location: extractedData.location,
+          dateTimePairs: extractedData.dateTimePairs,
           timeSlots: extractedData.timeSlots,
           images: extractedData.images,
           enhancedEmailHtml,
@@ -829,7 +868,7 @@ function formatDescriptionForEmail(description: string, paragraphFont: string = 
 }
 
 function createEmailTemplate(data: any, originalUrl: string, primaryColor: string = "#7851a9", secondaryColor: string = "#6a4c96", headingFont: string = "Playfair Display", paragraphFont: string = "Georgia", headingFontSize: number = 28, paragraphFontSize: number = 16, headingTextColor: string = "#ffffff", paragraphTextColor: string = "#333333"): string {
-  const { title, description, price, date, location, timeSlots, images } = data;
+  const { title, description, price, date, location, timeSlots, images, dateTimePairs } = data;
   
   // Create image gallery HTML (excluding the first image which is now the hero)
   const imageGallery = images.length > 1 ? `
@@ -848,21 +887,51 @@ function createEmailTemplate(data: any, originalUrl: string, primaryColor: strin
     </div>
   ` : '';
   
-  // Create time slots HTML with booking links
-  const timeSlotsHtml = timeSlots.length > 0 ? `
-    <div style="margin: 25px 0;">
-      <h3 style="font-size: 18px; color: #333; margin: 0 0 15px 0; font-weight: 600;">Available Times:</h3>
-      <div class="time-slots-container">
-        ${timeSlots.map((slot: {time: string, bookingUrl?: string}) => `
-          <a href="${slot.bookingUrl || originalUrl}" target="_blank" style="text-decoration: none;">
-            <span class="time-slot" style="cursor: pointer; transition: all 0.3s ease;"
-                  onmouseover="this.style.backgroundColor='${primaryColor}'; this.style.color='white'; this.style.borderColor='${primaryColor}'"
-                  onmouseout="this.style.backgroundColor='#f8f9fa'; this.style.color='#333'; this.style.borderColor='#dee2e6'">${slot.time}</span>
-          </a>
-        `).join('')}
+  // Create date-time pairs HTML or fallback to legacy time slots
+  let schedulingHtml = '';
+  
+  if (dateTimePairs && dateTimePairs.length > 0 && dateTimePairs.some((pair: any) => pair.times.length > 0)) {
+    // New date-time pairs format
+    schedulingHtml = `
+      <div style="margin: 25px 0;">
+        <h3 style="font-size: 18px; color: #333; margin: 0 0 15px 0; font-weight: 600;">Available Sessions:</h3>
+        <div class="sessions-container">
+          ${dateTimePairs.map((pair: any) => `
+            <div class="session-date-group" style="margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid ${primaryColor};">
+              <h4 style="margin: 0 0 10px 0; color: ${primaryColor}; font-size: 16px; font-weight: 600;">${pair.date}</h4>
+              ${pair.times.length > 0 ? `
+                <div class="time-slots-container">
+                  ${pair.times.map((time: string) => `
+                    <a href="${originalUrl}?date=${encodeURIComponent(pair.date)}&time=${encodeURIComponent(time)}" target="_blank" style="text-decoration: none;">
+                      <span class="time-slot" style="cursor: pointer; transition: all 0.3s ease; display: inline-block; margin: 3px 5px 3px 0; padding: 8px 16px; background: white; border: 1px solid #dee2e6; border-radius: 20px; font-size: 14px; color: #333;"
+                            onmouseover="this.style.backgroundColor='${primaryColor}'; this.style.color='white'; this.style.borderColor='${primaryColor}'"
+                            onmouseout="this.style.backgroundColor='white'; this.style.color='#333'; this.style.borderColor='#dee2e6'">${time}</span>
+                    </a>
+                  `).join('')}
+                </div>
+              ` : '<p style="margin: 0; color: #666; font-style: italic;">Time slots to be announced</p>'}
+            </div>
+          `).join('')}
+        </div>
       </div>
-    </div>
-  ` : '';
+    `;
+  } else if (timeSlots.length > 0) {
+    // Fallback to legacy time slots format
+    schedulingHtml = `
+      <div style="margin: 25px 0;">
+        <h3 style="font-size: 18px; color: #333; margin: 0 0 15px 0; font-weight: 600;">Available Times:</h3>
+        <div class="time-slots-container">
+          ${timeSlots.map((slot: {time: string, bookingUrl?: string}) => `
+            <a href="${slot.bookingUrl || originalUrl}" target="_blank" style="text-decoration: none;">
+              <span class="time-slot" style="cursor: pointer; transition: all 0.3s ease; display: inline-block; margin: 3px 5px 3px 0; padding: 8px 16px; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 20px; font-size: 14px; color: #333;"
+                    onmouseover="this.style.backgroundColor='${primaryColor}'; this.style.color='white'; this.style.borderColor='${primaryColor}'"
+                    onmouseout="this.style.backgroundColor='#f8f9fa'; this.style.color='#333'; this.style.borderColor='#dee2e6'">${slot.time}</span>
+            </a>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }
   
   // Get font families with fallbacks
   const headingFontFamily = GOOGLE_FONTS[headingFont as keyof typeof GOOGLE_FONTS] 
@@ -1123,7 +1192,7 @@ function createEmailTemplate(data: any, originalUrl: string, primaryColor: strin
                 </div>
             </div>
             
-            ${timeSlotsHtml}
+            ${schedulingHtml}
             
             <div class="cta-section">
                 <h3 style="margin: 0 0 15px 0; color: ${paragraphTextColor};">Ready to Book?</h3>
