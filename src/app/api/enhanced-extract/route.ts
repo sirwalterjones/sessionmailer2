@@ -284,20 +284,39 @@ export async function POST(request: NextRequest) {
              uniqueDates.forEach(dateStr => {
                const dateTimes: string[] = [];
                
-               // Strategy 1: Look for times in elements that also contain this date
-               const allElements = Array.from(document.querySelectorAll('*'));
-               const dateContainingElements = allElements.filter(el => {
+               // Strategy 1: Look for date-specific containers (most accurate)
+               // Find elements that contain this specific date
+               const dateSpecificElements = Array.from(document.querySelectorAll('*')).filter(el => {
                  const text = el.textContent?.trim() || '';
-                 return text.includes(dateStr) && text.length < 1000; // Avoid huge containers
+                 return text.includes(dateStr) && 
+                        text.length < 500 && // Smaller containers are more likely to be date-specific
+                        text.length > dateStr.length; // Must have more than just the date
                });
                
-               // Extract times from elements containing this date
-               dateContainingElements.forEach(el => {
-                 const elementText = el.textContent?.trim() || '';
-                 const timeMatches = elementText.match(/\b\d{1,2}:\d{2}\s*(?:AM|PM)\b/gi);
+               // Look for times specifically in these date containers
+               dateSpecificElements.forEach(el => {
+                 // Check if this element or its close children have time buttons/links
+                 const timeElements = el.querySelectorAll('button, a, span, div, [class*="time"], [class*="slot"], [data-time], [onclick*="time"]');
                  
-                 if (timeMatches) {
-                   timeMatches.forEach(time => {
+                 Array.from(timeElements).forEach(timeEl => {
+                   const timeText = timeEl.textContent?.trim() || '';
+                   const timeMatch = timeText.match(/\b\d{1,2}:\d{2}\s*(?:AM|PM)\b/i);
+                   
+                   if (timeMatch) {
+                     const timeStr = timeMatch[0].trim();
+                     if (timeStr.match(/^([1-9]|1[0-2]):[0-5]\d\s*(AM|PM)$/i) && 
+                         !dateTimes.includes(timeStr)) {
+                       dateTimes.push(timeStr);
+                     }
+                   }
+                 });
+                 
+                 // Also check the element's own text for times
+                 const elementText = el.textContent?.trim() || '';
+                 const directTimeMatches = elementText.match(/\b\d{1,2}:\d{2}\s*(?:AM|PM)\b/gi);
+                 
+                 if (directTimeMatches) {
+                   directTimeMatches.forEach(time => {
                      const timeStr = time.trim();
                      if (timeStr.match(/^([1-9]|1[0-2]):[0-5]\d\s*(AM|PM)$/i) && 
                          !dateTimes.includes(timeStr)) {
@@ -309,7 +328,7 @@ export async function POST(request: NextRequest) {
                
                // Strategy 2: If no times found, look for times in nearby DOM elements
                if (dateTimes.length === 0) {
-                 dateContainingElements.forEach(el => {
+                 dateSpecificElements.forEach(el => {
                    // Check parent and sibling elements
                    const parent = el.parentElement;
                    const elementsToCheck = [el];
@@ -342,12 +361,63 @@ export async function POST(request: NextRequest) {
                  });
                }
                
-               // Strategy 3: If still no times, look for clickable time elements on the page
+               // Strategy 3: Look for session-specific patterns (for booking sites)
                if (dateTimes.length === 0) {
-                 const timeElements = document.querySelectorAll('button, a, [class*="time"], [class*="slot"], [class*="book"], [data-time]');
+                 // Try to find grid/table structures where dates and times are organized
+                 const gridElements = document.querySelectorAll('[class*="grid"], [class*="table"], [class*="row"], [class*="col"], [class*="schedule"], tbody, tr, td');
                  
-                 Array.from(timeElements).forEach(timeEl => {
-                   const timeText = timeEl.textContent?.trim() || '';
+                 for (const grid of Array.from(gridElements)) {
+                   const gridText = grid.textContent?.trim() || '';
+                   if (gridText.includes(dateStr)) {
+                     // Look for times in this grid structure
+                     const gridTimeElements = grid.querySelectorAll('button, a, span, div, td, th, [class*="time"], [class*="slot"]');
+                     
+                     Array.from(gridTimeElements).forEach(timeEl => {
+                       const timeText = timeEl.textContent?.trim() || '';
+                       const timeMatch = timeText.match(/\b\d{1,2}:\d{2}\s*(?:AM|PM)\b/i);
+                       
+                       if (timeMatch) {
+                         const timeStr = timeMatch[0].trim();
+                         if (timeStr.match(/^([1-9]|1[0-2]):[0-5]\d\s*(AM|PM)$/i) && 
+                             !dateTimes.includes(timeStr)) {
+                           dateTimes.push(timeStr);
+                         }
+                       }
+                     });
+                     
+                     if (dateTimes.length > 0) break; // Found times in this grid
+                   }
+                 }
+               }
+               
+               // Strategy 4: Text-based extraction - look for time patterns near the date in the text
+               if (dateTimes.length === 0) {
+                 const pageText = document.body.textContent || '';
+                 const dateIndex = pageText.indexOf(dateStr);
+                 
+                 if (dateIndex !== -1) {
+                   // Look for times within 500 characters after this date
+                   const textAfterDate = pageText.substring(dateIndex, dateIndex + 500);
+                   const timeMatches = textAfterDate.match(/\b\d{1,2}:\d{2}\s*(?:AM|PM)\b/gi);
+                   
+                   if (timeMatches) {
+                     timeMatches.forEach(time => {
+                       const timeStr = time.trim();
+                       if (timeStr.match(/^([1-9]|1[0-2]):[0-5]\d\s*(AM|PM)$/i) && 
+                           !dateTimes.includes(timeStr)) {
+                         dateTimes.push(timeStr);
+                       }
+                     });
+                   }
+                 }
+               }
+               
+               // Strategy 5: Universal fallback - use common times for booking systems
+               if (dateTimes.length === 0) {
+                 const allTimeElements = document.querySelectorAll('button, a, [class*="time"], [class*="slot"], [class*="book"], [data-time], [onclick*="time"], input[type="button"], [class*="available"]');
+                 
+                 Array.from(allTimeElements).forEach(timeEl => {
+                   const timeText = timeEl.textContent?.trim() || timeEl.getAttribute('value')?.trim() || timeEl.getAttribute('title')?.trim() || '';
                    const timeMatch = timeText.match(/\b\d{1,2}:\d{2}\s*(?:AM|PM)\b/i);
                    
                    if (timeMatch) {
@@ -358,6 +428,11 @@ export async function POST(request: NextRequest) {
                      }
                    }
                  });
+                 
+                 // Limit to reasonable number of times for fallback
+                 if (dateTimes.length > 8) {
+                   dateTimes.splice(8);
+                 }
                }
                
                // Add this date with its times (even if no times found)
