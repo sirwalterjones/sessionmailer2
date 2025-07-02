@@ -952,56 +952,30 @@ function createEmailTemplate(data: any, originalUrl: string, primaryColor: strin
   
   if (dateTimePairs && dateTimePairs.length > 0 && dateTimePairs.some((pair: any) => pair.times.length > 0)) {
     // New date-time pairs format
-    if (dateTimePairs.length > 6) {
-      // Show simplified view for many dates
-      const allTimesSet = new Set<string>(dateTimePairs.flatMap((pair: any) => pair.times));
-      const allTimes: string[] = Array.from(allTimesSet);
-      schedulingHtml = `
-        <div style="margin: 25px 0;">
-          <h3 style="font-size: 18px; color: #333; margin: 0 0 15px 0; font-weight: 600;">Available Sessions:</h3>
-          <div style="margin-bottom: 15px; padding: 15px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid ${primaryColor};">
-            <h4 style="margin: 0 0 10px 0; color: ${primaryColor}; font-size: 16px; font-weight: 600;">Multiple Dates Available</h4>
-            <p style="margin: 0 0 10px 0; color: #666; font-size: 14px;">Sessions available across ${dateTimePairs.length} different dates</p>
-            ${allTimes.length > 0 ? `
-              <div class="time-slots-container">
-                ${allTimes.slice(0, 8).map((time: string) => `
-                  <a href="${originalUrl}?time=${encodeURIComponent(time)}" target="_blank" style="text-decoration: none;">
-                    <span class="time-slot" style="cursor: pointer; transition: all 0.3s ease; display: inline-block; margin: 3px 5px 3px 0; padding: 8px 16px; background: white; border: 1px solid #dee2e6; border-radius: 20px; font-size: 14px; color: #333;"
-                          onmouseover="this.style.backgroundColor='${primaryColor}'; this.style.color='white'; this.style.borderColor='${primaryColor}'"
-                          onmouseout="this.style.backgroundColor='white'; this.style.color='#333'; this.style.borderColor='#dee2e6'">${time}</span>
-                  </a>
-                `).join('')}
-              </div>
-            ` : '<p style="margin: 0; color: #666; font-style: italic;">Time slots to be announced</p>'}
-          </div>
+    // Always show detailed view with individual dates and times
+    schedulingHtml = `
+      <div style="margin: 25px 0;">
+        <h3 style="font-size: 18px; color: #333; margin: 0 0 15px 0; font-weight: 600;">Available Sessions:</h3>
+        <div class="sessions-container">
+          ${dateTimePairs.map((pair: any) => `
+            <div class="session-date-group" style="margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid ${primaryColor};">
+              <h4 style="margin: 0 0 10px 0; color: ${primaryColor}; font-size: 16px; font-weight: 600;">${pair.date}</h4>
+              ${pair.times.length > 0 ? `
+                <div class="time-slots-container">
+                  ${pair.times.map((time: string) => `
+                    <a href="${originalUrl}?date=${encodeURIComponent(pair.date)}&time=${encodeURIComponent(time)}" target="_blank" style="text-decoration: none;">
+                      <span class="time-slot" style="cursor: pointer; transition: all 0.3s ease; display: inline-block; margin: 3px 5px 3px 0; padding: 8px 16px; background: white; border: 1px solid #dee2e6; border-radius: 20px; font-size: 14px; color: #333;"
+                            onmouseover="this.style.backgroundColor='${primaryColor}'; this.style.color='white'; this.style.borderColor='${primaryColor}'"
+                            onmouseout="this.style.backgroundColor='white'; this.style.color='#333'; this.style.borderColor='#dee2e6'">${time}</span>
+                    </a>
+                  `).join('')}
+                </div>
+              ` : '<p style="margin: 0; color: #666; font-style: italic;">Time slots to be announced</p>'}
+            </div>
+          `).join('')}
         </div>
-      `;
-    } else {
-      // Show detailed view for fewer dates
-      schedulingHtml = `
-        <div style="margin: 25px 0;">
-          <h3 style="font-size: 18px; color: #333; margin: 0 0 15px 0; font-weight: 600;">Available Sessions:</h3>
-          <div class="sessions-container">
-            ${dateTimePairs.map((pair: any) => `
-              <div class="session-date-group" style="margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid ${primaryColor};">
-                <h4 style="margin: 0 0 10px 0; color: ${primaryColor}; font-size: 16px; font-weight: 600;">${pair.date}</h4>
-                ${pair.times.length > 0 ? `
-                  <div class="time-slots-container">
-                    ${pair.times.map((time: string) => `
-                      <a href="${originalUrl}?date=${encodeURIComponent(pair.date)}&time=${encodeURIComponent(time)}" target="_blank" style="text-decoration: none;">
-                        <span class="time-slot" style="cursor: pointer; transition: all 0.3s ease; display: inline-block; margin: 3px 5px 3px 0; padding: 8px 16px; background: white; border: 1px solid #dee2e6; border-radius: 20px; font-size: 14px; color: #333;"
-                              onmouseover="this.style.backgroundColor='${primaryColor}'; this.style.color='white'; this.style.borderColor='${primaryColor}'"
-                              onmouseout="this.style.backgroundColor='white'; this.style.color='#333'; this.style.borderColor='#dee2e6'">${time}</span>
-                      </a>
-                    `).join('')}
-                  </div>
-                ` : '<p style="margin: 0; color: #666; font-style: italic;">Time slots to be announced</p>'}
-              </div>
-            `).join('')}
-          </div>
-        </div>
-      `;
-    }
+      </div>
+    `;
   } else if (timeSlots.length > 0) {
     // Fallback to legacy time slots format
     schedulingHtml = `
